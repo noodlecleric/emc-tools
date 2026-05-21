@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>emc-tools</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar" aria-label="Server stats">
+    <div class="topbar-cell" data-cell="nation">
+      <span class="cell-label" id="nation-name">…</span>
+      <span class="cell-value">
+        <span id="nation-online">—</span>/<span id="nation-total">—</span>
+      </span>
+      <span class="cell-suffix">online</span>
+    </div>
+    <div class="topbar-cell" data-cell="vp">
+      <span class="cell-label">VP in</span>
+      <span class="cell-value" id="vp-remaining">—</span>
+    </div>
+    <div class="topbar-cell" data-cell="server">
+      <span class="cell-value" id="server-online">—</span>
+      <span class="cell-suffix">on server</span>
+    </div>
+    <button class="refresh-btn" id="refresh-btn" type="button" aria-label="Refresh now">⟳</button>
+    <span class="last-refresh" id="last-refresh"></span>
+  </header>
+
+  <main>
+    <section class="roster" aria-labelledby="roster-heading">
+      <h2 id="roster-heading">Online now</h2>
+      <div class="roster-list" id="roster-list" aria-live="polite">
+        <p class="muted">Loading…</p>
+      </div>
+    </section>
+
+    <section class="player-detail" id="player-detail" hidden aria-labelledby="player-detail-name">
+      <header class="player-detail-header">
+        <h2 id="player-detail-name">…</h2>
+        <button class="close-btn" id="player-detail-close" type="button" aria-label="Close">×</button>
+      </header>
+      <div class="player-detail-body" id="player-detail-body" aria-live="polite">
+        <p class="muted">Loading…</p>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
