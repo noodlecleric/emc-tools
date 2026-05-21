@@ -9,13 +9,16 @@
 <body>
   <header class="topbar" aria-label="Server stats">
     <div class="topbar-cell" data-cell="nation">
-      <span class="cell-label" id="nation-name">…</span>
+      <button class="nation-switcher" id="nation-switcher" type="button" title="Click to change default nation">
+        <span class="cell-label" id="nation-name">…</span>
+      </button>
+      <input class="nation-input" id="nation-input" type="text" hidden placeholder="nation name" autocomplete="off">
       <span class="cell-value">
         <span id="nation-online">—</span>/<span id="nation-total">—</span>
       </span>
       <span class="cell-suffix">online</span>
     </div>
-    <div class="topbar-cell" data-cell="vp">
+    <div class="topbar-cell" data-cell="vp" data-tooltip="Vote Party — cumulative votes from all players. When the target is reached, everyone gets in-game rewards.">
       <span class="cell-label">VP in</span>
       <span class="cell-value" id="vp-remaining">—</span>
     </div>
@@ -23,28 +26,43 @@
       <span class="cell-value" id="server-online">—</span>
       <span class="cell-suffix">on server</span>
     </div>
+    <nav class="topbar-nav">
+      <a class="nav-link" href="?" data-nav="default">Roster</a>
+      <a class="nav-link" href="?view=townless" data-nav="townless">Nomads</a>
+    </nav>
     <button class="refresh-btn" id="refresh-btn" type="button" aria-label="Refresh now">⟳</button>
     <span class="last-refresh" id="last-refresh"></span>
+    <span class="api-stats" id="api-stats">
+      <span class="api-stat" id="api-stat-req" data-tooltip="API requests sent in the last minute. EarthMC's rate limit is ~180/min. Goes yellow above 90/min, red above 150/min.">API: <span id="api-min">—</span>/min</span>
+      <span class="dim">·</span>
+      <span class="api-stat" id="api-stat-total" data-tooltip="Total API requests this session. Resets on page reload."><span id="api-total">—</span> total</span>
+      <span class="dim">·</span>
+      <span class="api-stat" id="api-stat-cache" data-tooltip="Cache hit rate this session — how often a request was served from the in-memory cache instead of hitting the EMC API. Higher is better. Steady-state should sit at 70-90%.">cache <span id="cache-pct">—</span>%</span>
+    </span>
   </header>
 
-  <main>
-    <section class="roster" aria-labelledby="roster-heading">
-      <h2 id="roster-heading">Online now</h2>
-      <div class="roster-list" id="roster-list" aria-live="polite">
-        <p class="muted">Loading…</p>
-      </div>
-    </section>
+  <div class="search-bar">
+    <div class="search-types" role="tablist" aria-label="Search type">
+      <button class="search-type active" type="button" data-type="nation">Nation</button>
+      <button class="search-type" type="button" data-type="town">Town</button>
+      <button class="search-type" type="button" data-type="player">Player</button>
+    </div>
+    <div class="search-input-wrap">
+      <input id="search-input" class="search-input" type="text" placeholder="Search nations…" autocomplete="off">
+      <button id="search-go" class="search-go" type="button" aria-label="Search">⌕</button>
+      <div class="search-suggestions" id="search-suggestions" hidden role="listbox"></div>
+    </div>
+  </div>
 
-    <section class="player-detail" id="player-detail" hidden aria-labelledby="player-detail-name">
-      <header class="player-detail-header">
-        <h2 id="player-detail-name">…</h2>
-        <button class="close-btn" id="player-detail-close" type="button" aria-label="Close">×</button>
-      </header>
-      <div class="player-detail-body" id="player-detail-body" aria-live="polite">
-        <p class="muted">Loading…</p>
-      </div>
-    </section>
+  <main>
+    <div id="main-view">
+      <p class="muted">Loading…</p>
+    </div>
   </main>
+
+  <footer class="site-footer">
+    <a href="https://github.com/noodlecleric/emc-tools" target="_blank" rel="noopener">github.com/noodlecleric/emc-tools</a>
+  </footer>
 
   <script type="module" src="js/app.js"></script>
 </body>

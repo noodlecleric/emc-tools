@@ -1,5 +1,6 @@
 import { postPlayers } from './api.js';
 import { cached } from './cache.js';
+import { formatGold, formatDate, formatDateTime, formatRelative, makeEntityLink, makeBadge, loadingEl, errorEl } from './render.js';
 
 const TTL_PLAYER = 30_000;
 
@@ -11,81 +12,135 @@ export async function fetchPlayer(nameOrUuid) {
   return player;
 }
 
-function formatRelative(ts) {
-  if (!ts) return '—';
-  const diff = Date.now() - ts;
-  const min = Math.floor(diff / 60_000);
-  if (min < 1) return 'just now';
-  if (min < 60) return `${min} min ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr} hr ago`;
-  const day = Math.floor(hr / 24);
-  if (day < 30) return `${day} day${day === 1 ? '' : 's'} ago`;
-  return new Date(ts).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-}
-
-function formatDate(ts) {
-  if (!ts) return '—';
-  return new Date(ts).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-}
-
-function rowEl(label, valueEl, dim = false) {
-  const labelEl = document.createElement('div');
-  labelEl.className = 'label';
-  labelEl.textContent = label;
-  const val = typeof valueEl === 'string' ? document.createElement('div') : valueEl;
+function rowEls(label, valueEl, dim = false) {
+  const l = document.createElement('div');
+  l.className = 'label';
+  l.textContent = label;
   if (typeof valueEl === 'string') {
-    val.className = `value${dim ? ' dim' : ''}`;
-    val.textContent = valueEl;
+    const v = document.createElement('div');
+    v.className = `value${dim ? ' dim' : ''}`;
+    v.textContent = valueEl;
+    return [l, v];
   }
-  return [labelEl, val];
+  return [l, valueEl];
 }
 
-export function renderPlayerDetail(player, container, nameHeader) {
+function renderHeader(nameContainer, player) {
+  nameContainer.replaceChildren();
+  const nameSpan = document.createElement('span');
+  nameSpan.textContent = player.formattedName ?? player.name;
+  nameContainer.appendChild(nameSpan);
+
+  const s = player.status ?? {};
+  if (s.isOnline) nameContainer.appendChild(makeBadge('Online', 'online'));
+  if (s.isKing) nameContainer.appendChild(makeBadge('King', 'king'));
+  else if (s.isMayor) nameContainer.appendChild(makeBadge('Mayor', 'mayor'));
+}
+
+function renderBody(bodyContainer, player) {
   const status = player.status ?? {};
   const stats = player.stats ?? {};
   const ts = player.timestamps ?? {};
 
-  // Header: formatted name + status badges
-  nameHeader.replaceChildren();
-  const nameSpan = document.createElement('span');
-  nameSpan.textContent = player.formattedName ?? player.name;
-  nameHeader.appendChild(nameSpan);
+  bodyContainer.replaceChildren();
+  const append = (...els) => els.forEach(e => bodyContainer.appendChild(e));
+
+  if (player.town) {
+    const v = document.createElement('div');
+    v.className = 'value';
+    v.appendChild(makeEntityLink('town', player.town.name));
+    append(...rowEls('Town', v));
+  } else {
+    append(...rowEls('Town', 'townless', true));
+  }
+
+  if (player.nation) {
+    const v = document.createElement('div');
+    v.className = 'value';
+    v.appendChild(makeEntityLink('nation', player.nation.name));
+    append(...rowEls('Nation', v));
+  } else {
+    append(...rowEls('Nation', '—', true));
+  }
 
   if (status.isOnline) {
-    const b = document.createElement('span');
-    b.className = 'badge online';
-    b.textContent = 'Online';
-    nameHeader.appendChild(b);
-  }
-  if (status.isKing) {
-    const b = document.createElement('span');
-    b.className = 'badge king';
-    b.textContent = 'King';
-    nameHeader.appendChild(b);
-  } else if (status.isMayor) {
-    const b = document.createElement('span');
-    b.className = 'badge mayor';
-    b.textContent = 'Mayor';
-    nameHeader.appendChild(b);
+    append(...rowEls('Last online', 'Online now'));
+  } else if (ts.lastOnline) {
+    const v = document.createElement('div');
+    v.className = 'value';
+    v.textContent = `${formatRelative(ts.lastOnline)} · ${formatDateTime(ts.lastOnline)}`;
+    append(...rowEls('Last online', v));
+  } else {
+    append(...rowEls('Last online', '—', true));
   }
 
-  // Body rows
-  container.replaceChildren();
-  const append = (...els) => els.forEach(e => container.appendChild(e));
+  if (ts.joinedTownAt) {
+    const v = document.createElement('div');
+    v.className = 'value';
+    v.textContent = formatDate(ts.joinedTownAt);
+    v.title = 'Date this player joined their current town. The API does not track nation-join dates directly; this resets if a player switches towns within the same nation.';
+    append(...rowEls('Joined town', v));
+  }
 
-  append(...rowEl('Town', player.town?.name ?? '—', !player.town));
-  append(...rowEl('Nation', player.nation?.name ?? '—', !player.nation));
-  append(...rowEl('Last online', status.isOnline ? 'Online now' : formatRelative(ts.lastOnline)));
-  append(...rowEl('Registered', formatDate(ts.registered), !ts.registered));
+  if (ts.registered) {
+    append(...rowEls('Registered', formatDate(ts.registered)));
+  }
 
   if ('balance' in stats) {
-    append(...rowEl('Balance', stats.balance.toFixed(2)));
+    append(...rowEls('Balance', formatGold(stats.balance)));
   } else {
-    append(...rowEl('Balance', 'private', true));
+    append(...rowEls('Balance', 'private', true));
   }
 
   if (player.about) {
-    append(...rowEl('About', player.about));
+    append(...rowEls('About', player.about));
   }
+}
+
+// Phase 1 popover render path
+export function renderPlayerDetail(player, bodyContainer, nameHeader) {
+  renderHeader(nameHeader, player);
+  renderBody(bodyContainer, player);
+}
+
+// Full-page player module
+export async function mountPlayer(container, nameOrUuid) {
+  container.replaceChildren(loadingEl(`Loading ${nameOrUuid}…`));
+  let player;
+  try {
+    player = await fetchPlayer(nameOrUuid);
+  } catch (err) {
+    container.replaceChildren(errorEl(err.message));
+    return;
+  }
+
+  container.replaceChildren();
+
+  const card = document.createElement('div');
+  card.className = 'player-module';
+
+  const header = document.createElement('header');
+  header.className = 'player-module-header';
+
+  const avatar = document.createElement('img');
+  avatar.className = 'player-module-avatar';
+  avatar.src = `https://crafthead.net/avatar/${player.uuid}/64`;
+  avatar.alt = '';
+  avatar.width = 64;
+  avatar.height = 64;
+  avatar.loading = 'lazy';
+  avatar.onerror = () => { avatar.style.visibility = 'hidden'; };
+
+  const h2 = document.createElement('h2');
+  renderHeader(h2, player);
+
+  header.append(avatar, h2);
+  card.appendChild(header);
+
+  const body = document.createElement('div');
+  body.className = 'detail-grid';
+  renderBody(body, player);
+  card.appendChild(body);
+
+  container.appendChild(card);
 }

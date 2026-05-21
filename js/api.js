@@ -10,19 +10,42 @@ export class ApiError extends Error {
   }
 }
 
+// Lightweight rolling log of recent API calls for the visible counter.
+const requestLog = [];
+const MAX_LOG = 2000;
+
+function logRequest(record) {
+  requestLog.push({ ts: Date.now(), ...record });
+  if (requestLog.length > MAX_LOG) requestLog.shift();
+  // Prune entries older than 1 hour
+  const cutoff = Date.now() - 3_600_000;
+  while (requestLog.length && requestLog[0].ts < cutoff) requestLog.shift();
+}
+
+export function getApiStats() {
+  const now = Date.now();
+  let lastMin = 0;
+  let lastHour = 0;
+  for (const r of requestLog) {
+    if (now - r.ts < 60_000) lastMin++;
+    if (now - r.ts < 3_600_000) lastHour++;
+  }
+  return { lastMin, lastHour, total: requestLog.length };
+}
+
 async function request(path, { method = 'GET', body, timeout = DEFAULT_TIMEOUT } = {}) {
   const ctrl = new AbortController();
   const timeoutId = setTimeout(() => ctrl.abort(), timeout);
   try {
     const res = await fetch(`${BASE}${path}`, {
       method,
-      // text/plain (not application/json) keeps this a CORS "simple request" so the browser
-       // skips the OPTIONS preflight. The EMC API returns 404 on OPTIONS, which would fail
-       // any preflight even though the actual GET/POST works fine.
+      // text/plain dodges the OPTIONS preflight 404 bug on EMC's API.
+      // The server still parses the body as JSON.
       headers: body ? { 'Content-Type': 'text/plain' } : {},
       body: body ? JSON.stringify(body) : undefined,
       signal: ctrl.signal,
     });
+    logRequest({ path, method, status: res.status });
     if (!res.ok) {
       let errBody = null;
       try { errBody = await res.json(); } catch { /* ignore */ }
