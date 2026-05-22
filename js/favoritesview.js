@@ -22,17 +22,44 @@ function emptyEl(text) {
   return p;
 }
 
-function favoriteRow(entityType, name, statsNode, idx, onReorder) {
+function favoriteRow(entityType, name, statsNode, idx, total, onReorder) {
   const row = document.createElement('div');
   row.className = `fav-row fav-row-${entityType}`;
   row.draggable = true;
   row.dataset.idx = String(idx);
 
+  // Desktop affordance: drag handle (works with hover-capable pointers)
   const handle = document.createElement('span');
   handle.className = 'fav-drag-handle';
   handle.textContent = '⋮⋮';
   handle.title = 'Drag to reorder';
   row.appendChild(handle);
+
+  // Touch affordance: up/down arrow buttons (HTML5 drag-drop doesn't fire on touch)
+  const arrows = document.createElement('span');
+  arrows.className = 'fav-arrows';
+  const upBtn = document.createElement('button');
+  upBtn.type = 'button';
+  upBtn.className = 'fav-arrow';
+  upBtn.setAttribute('aria-label', 'Move up');
+  upBtn.textContent = '↑';
+  upBtn.disabled = idx === 0;
+  upBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (idx > 0) onReorder(idx, idx - 1);
+  });
+  const downBtn = document.createElement('button');
+  downBtn.type = 'button';
+  downBtn.className = 'fav-arrow';
+  downBtn.setAttribute('aria-label', 'Move down');
+  downBtn.textContent = '↓';
+  downBtn.disabled = idx === total - 1;
+  downBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (idx < total - 1) onReorder(idx, idx + 1);
+  });
+  arrows.append(upBtn, downBtn);
+  row.appendChild(arrows);
 
   const linkWrap = document.createElement('span');
   linkWrap.className = 'fav-name';
@@ -115,12 +142,12 @@ export async function mountFavorites(container) {
       for (const fav of favs.nations) {
         const found = data?.find(n => n.name.toLowerCase() === fav.name.toLowerCase());
         if (!found) {
-          list.appendChild(favoriteRow('nation', fav.name, 'not found', favs.nations.indexOf(fav), (f, t) => reorderAndRemount(container, 'nations', f, t)));
+          list.appendChild(favoriteRow('nation', fav.name, 'not found', favs.nations.indexOf(fav), favs.nations.length, (f, t) => reorderAndRemount(container, 'nations', f, t)));
           continue;
         }
         const residents = found.residents ?? [];
         const onlineCount = residents.filter(r => onlineUuids.has(r.uuid)).length;
-        list.appendChild(favoriteRow('nation', found.name, `${onlineCount}/${residents.length} online`, favs.nations.indexOf(fav), (f, t) => reorderAndRemount(container, 'nations', f, t)));
+        list.appendChild(favoriteRow('nation', found.name, `${onlineCount}/${residents.length} online`, favs.nations.indexOf(fav), favs.nations.length, (f, t) => reorderAndRemount(container, 'nations', f, t)));
       }
     } catch (err) {
       console.error(err);
@@ -149,7 +176,7 @@ export async function mountFavorites(container) {
       for (const fav of favs.towns) {
         const found = data?.find(t => t.name.toLowerCase() === fav.name.toLowerCase());
         if (!found) {
-          list.appendChild(favoriteRow('town', fav.name, 'not found', favs.towns.indexOf(fav), (f, t) => reorderAndRemount(container, 'towns', f, t)));
+          list.appendChild(favoriteRow('town', fav.name, 'not found', favs.towns.indexOf(fav), favs.towns.length, (f, t) => reorderAndRemount(container, 'towns', f, t)));
           continue;
         }
         const residents = found.residents ?? [];
@@ -164,7 +191,7 @@ export async function mountFavorites(container) {
           pill.textContent = 'OVER';
           stat.append(' ', pill);
         }
-        list.appendChild(favoriteRow('town', found.name, stat, favs.towns.indexOf(fav), (f, t) => reorderAndRemount(container, 'towns', f, t)));
+        list.appendChild(favoriteRow('town', found.name, stat, favs.towns.indexOf(fav), favs.towns.length, (f, t) => reorderAndRemount(container, 'towns', f, t)));
       }
     } catch (err) {
       console.error(err);
@@ -198,7 +225,7 @@ export async function mountFavorites(container) {
           || p.name?.toLowerCase() === fav.name.toLowerCase()
         );
         if (!found) {
-          list.appendChild(favoriteRow('player', fav.name, 'not found', favs.players.indexOf(fav), (f, t) => reorderAndRemount(container, 'players', f, t)));
+          list.appendChild(favoriteRow('player', fav.name, 'not found', favs.players.indexOf(fav), favs.players.length, (f, t) => reorderAndRemount(container, 'players', f, t)));
           continue;
         }
         const isOnline = onlineUuids.has(found.uuid);
@@ -212,7 +239,7 @@ export async function mountFavorites(container) {
         } else {
           stat.appendChild(makeLastSeenBadge(found.timestamps?.lastOnline));
         }
-        list.appendChild(favoriteRow('player', found.name, stat, favs.players.indexOf(fav), (f, t) => reorderAndRemount(container, 'players', f, t)));
+        list.appendChild(favoriteRow('player', found.name, stat, favs.players.indexOf(fav), favs.players.length, (f, t) => reorderAndRemount(container, 'players', f, t)));
       }
     } catch (err) {
       console.error(err);

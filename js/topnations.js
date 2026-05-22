@@ -50,7 +50,7 @@ function buildTable(rows, sort, onSort) {
   });
 
   const table = document.createElement('table');
-  table.className = 'town-table';
+  table.className = 'town-table cards-on-mobile';
 
   const thead = document.createElement('thead');
   const headerRow = document.createElement('tr');
@@ -85,27 +85,28 @@ function buildTable(rows, sort, onSort) {
     const tr = document.createElement('tr');
 
     const nameTd = document.createElement('td');
+    nameTd.dataset.label = 'Nation';
     nameTd.appendChild(makeEntityLink('nation', r.name));
-    const mobileSuffix = document.createElement('span');
-    mobileSuffix.className = 'mobile-balance';
-    mobileSuffix.textContent = ` · ${r.balance.toLocaleString()}g`;
-    nameTd.appendChild(mobileSuffix);
 
     const resTd = document.createElement('td');
     resTd.className = 'numeric';
+    resTd.dataset.label = 'Residents';
     resTd.textContent = r.residents.toLocaleString();
 
     const onlineTd = document.createElement('td');
     onlineTd.className = 'numeric';
+    onlineTd.dataset.label = 'Online';
     if (r.online > 0) onlineTd.classList.add('online-count');
     onlineTd.textContent = r.online.toLocaleString();
 
     const areaTd = document.createElement('td');
     areaTd.className = 'numeric';
+    areaTd.dataset.label = 'Area';
     areaTd.textContent = r.area.toLocaleString();
 
     const balTd = document.createElement('td');
-    balTd.className = 'numeric balance-col';
+    balTd.className = 'numeric';
+    balTd.dataset.label = 'Gold';
     balTd.textContent = `${r.balance.toLocaleString()}g`;
 
     tr.append(nameTd, resTd, onlineTd, areaTd, balTd);

@@ -220,14 +220,36 @@ function bindGlobalShortcuts() {
   if (trigger) trigger.addEventListener('click', openSearch);
 }
 
+let savedScrollY = 0;
+
+function lockBody() {
+  // iOS Safari rubber-bands over `overflow: hidden`. The position-fixed dance is the workaround.
+  savedScrollY = window.scrollY;
+  document.body.style.position = 'fixed';
+  document.body.style.top = `-${savedScrollY}px`;
+  document.body.style.left = '0';
+  document.body.style.right = '0';
+  document.body.style.overflow = 'hidden';
+}
+
+function unlockBody() {
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.left = '';
+  document.body.style.right = '';
+  document.body.style.overflow = '';
+  window.scrollTo(0, savedScrollY);
+}
+
 export function openSearch() {
   if (!isMounted || isOpen) return;
   isOpen = true;
   lastFocus = document.activeElement;
   overlayEl.hidden = false;
-  document.body.style.overflow = 'hidden';
-  // Focus the input after layout so the cursor is in the right place
-  requestAnimationFrame(() => inputEl.focus());
+  // Focus synchronously while still inside the user gesture (iOS keyboard won't appear otherwise).
+  inputEl.focus();
+  // Lock body AFTER focus to avoid iOS scrolling the body before fixing position.
+  lockBody();
 }
 
 export function closeSearch() {
@@ -236,7 +258,7 @@ export function closeSearch() {
   overlayEl.hidden = true;
   inputEl.value = '';
   suggestionsEl.hidden = true;
-  document.body.style.overflow = '';
+  unlockBody();
   if (blurHideTimer) { clearTimeout(blurHideTimer); blurHideTimer = null; }
   if (lastFocus && typeof lastFocus.focus === 'function') {
     lastFocus.focus();
