@@ -8,37 +8,44 @@
 </head>
 <body>
   <header class="topbar" aria-label="Server stats">
-    <div class="topbar-cell" data-cell="nation">
-      <button class="nation-switcher" id="nation-switcher" type="button" title="Click to change default nation">
-        <span class="cell-label" id="nation-name">…</span>
-      </button>
-      <input class="nation-input" id="nation-input" type="text" hidden placeholder="nation name" autocomplete="off">
-      <span class="cell-value">
-        <span id="nation-online">—</span>/<span id="nation-total">—</span>
+    <div class="topbar-row topbar-primary">
+      <div class="topbar-cell" data-cell="nation">
+        <button class="nation-switcher" id="nation-switcher" type="button" title="Click to change default nation">
+          <span class="cell-label" id="nation-name">…</span>
+        </button>
+        <input class="nation-input" id="nation-input" type="text" hidden placeholder="nation name" autocomplete="off">
+        <span class="cell-value">
+          <span id="nation-online">—</span>/<span id="nation-total">—</span>
+        </span>
+        <span class="cell-suffix">online</span>
+      </div>
+      <div class="topbar-cell" data-cell="vp" data-tooltip="Vote Party — cumulative votes from all players. When the target is reached, everyone gets in-game rewards.">
+        <span class="cell-label">VP in</span>
+        <span class="cell-value" id="vp-remaining">—</span>
+      </div>
+      <div class="topbar-cell" data-cell="server">
+        <span class="cell-value" id="server-online">—</span>
+        <span class="cell-suffix">on server</span>
+      </div>
+      <nav class="topbar-nav">
+        <a class="nav-link" href="?" data-nav="default">Roster</a>
+        <a class="nav-link" href="?view=nations" data-nav="nations">Nations</a>
+        <a class="nav-link" href="?view=townless" data-nav="townless">Nomads</a>
+        <a class="nav-link" href="?view=favorites" data-nav="favorites">★ Favorites</a>
+      </nav>
+      <button class="refresh-btn" id="refresh-btn" type="button" aria-label="Refresh now">⟳</button>
+    </div>
+    <div class="topbar-row topbar-secondary">
+      <span class="last-refresh" id="last-refresh"></span>
+      <span class="dim">·</span>
+      <span class="api-stats" id="api-stats">
+        <span class="api-stat" id="api-stat-req" data-tooltip="API requests sent in the last minute. EarthMC's rate limit is ~180/min. Goes yellow above 90/min, red above 150/min.">API: <span id="api-min">—</span>/min</span>
+        <span class="dim">·</span>
+        <span class="api-stat" id="api-stat-total" data-tooltip="Total API requests this session. Resets on page reload."><span id="api-total">—</span> total</span>
+        <span class="dim">·</span>
+        <span class="api-stat" id="api-stat-cache" data-tooltip="Cache hit rate this session — how often a request was served from the in-memory cache instead of hitting the EMC API. Higher is better. Steady-state should sit at 70-90%.">cache <span id="cache-pct">—</span>%</span>
       </span>
-      <span class="cell-suffix">online</span>
     </div>
-    <div class="topbar-cell" data-cell="vp" data-tooltip="Vote Party — cumulative votes from all players. When the target is reached, everyone gets in-game rewards.">
-      <span class="cell-label">VP in</span>
-      <span class="cell-value" id="vp-remaining">—</span>
-    </div>
-    <div class="topbar-cell" data-cell="server">
-      <span class="cell-value" id="server-online">—</span>
-      <span class="cell-suffix">on server</span>
-    </div>
-    <nav class="topbar-nav">
-      <a class="nav-link" href="?" data-nav="default">Roster</a>
-      <a class="nav-link" href="?view=townless" data-nav="townless">Nomads</a>
-    </nav>
-    <button class="refresh-btn" id="refresh-btn" type="button" aria-label="Refresh now">⟳</button>
-    <span class="last-refresh" id="last-refresh"></span>
-    <span class="api-stats" id="api-stats">
-      <span class="api-stat" id="api-stat-req" data-tooltip="API requests sent in the last minute. EarthMC's rate limit is ~180/min. Goes yellow above 90/min, red above 150/min.">API: <span id="api-min">—</span>/min</span>
-      <span class="dim">·</span>
-      <span class="api-stat" id="api-stat-total" data-tooltip="Total API requests this session. Resets on page reload."><span id="api-total">—</span> total</span>
-      <span class="dim">·</span>
-      <span class="api-stat" id="api-stat-cache" data-tooltip="Cache hit rate this session — how often a request was served from the in-memory cache instead of hitting the EMC API. Higher is better. Steady-state should sit at 70-90%.">cache <span id="cache-pct">—</span>%</span>
-    </span>
   </header>
 
   <div class="search-bar">

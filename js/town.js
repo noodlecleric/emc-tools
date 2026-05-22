@@ -1,6 +1,7 @@
 import { postTowns, getOnline } from './api.js';
 import { cached } from './cache.js';
 import { formatGold, formatDate, makeCoordChip, makeEntityLink, makeLastSeenBadge, loadingEl, errorEl, fetchPlayersBatch } from './render.js';
+import { makeFavoriteStar } from './favorites.js';
 
 const TTL_TOWN = 60_000;
 const TTL_ONLINE = 15_000;
@@ -78,6 +79,8 @@ export async function mountTown(container, name) {
   header.className = 'module-header';
   const h2 = document.createElement('h2');
   h2.textContent = town.name;
+  h2.appendChild(document.createTextNode(' '));
+  h2.appendChild(makeFavoriteStar('towns', { name: town.name, uuid: town.uuid }));
   header.appendChild(h2);
   if (town.mayor) {
     const wrap = document.createElement('span');
@@ -93,7 +96,31 @@ export async function mountTown(container, name) {
   const s = town.stats ?? {};
 
   stats.append(...row('Residents', valueText(String(s.numResidents ?? 0))));
-  stats.append(...row('Town blocks', valueText(String(s.numTownBlocks ?? 0))));
+
+  // Claims with overclaim indicator
+  const claimsVal = document.createElement('div');
+  claimsVal.className = 'value claims-cell';
+  const num = s.numTownBlocks ?? 0;
+  const max = s.maxTownBlocks ?? 0;
+  const ratio = max > 0 ? num / max : 0;
+  const isOver = town.status?.isOverClaimed;
+  const isWarn = !isOver && ratio >= 0.9;
+  if (isOver) claimsVal.classList.add('over');
+  else if (isWarn) claimsVal.classList.add('warn');
+  claimsVal.textContent = max > 0
+    ? `${num.toLocaleString()} / ${max.toLocaleString()} (${Math.round(ratio * 100)}%)`
+    : `${num.toLocaleString()}`;
+  if (isOver) {
+    const pill = document.createElement('span');
+    pill.className = 'overclaim-pill';
+    pill.textContent = 'OVER';
+    claimsVal.append(' ', pill);
+  }
+  if (s.bonusBlocks > 0) {
+    claimsVal.title = `Bonus blocks: ${s.bonusBlocks}`;
+  }
+  stats.append(...row('Claims', claimsVal));
+
   stats.append(...row('Bank', valueText(formatGold(s.balance))));
   if (town.timestamps?.registered) {
     stats.append(...row('Founded', valueText(formatDate(town.timestamps.registered))));

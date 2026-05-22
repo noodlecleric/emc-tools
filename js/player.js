@@ -1,6 +1,7 @@
 import { postPlayers } from './api.js';
 import { cached } from './cache.js';
 import { formatGold, formatDate, formatDateTime, formatRelative, makeEntityLink, makeBadge, loadingEl, errorEl } from './render.js';
+import { makeFavoriteStar } from './favorites.js';
 
 const TTL_PLAYER = 30_000;
 
@@ -35,6 +36,9 @@ function renderHeader(nameContainer, player) {
   if (s.isOnline) nameContainer.appendChild(makeBadge('Online', 'online'));
   if (s.isKing) nameContainer.appendChild(makeBadge('King', 'king'));
   else if (s.isMayor) nameContainer.appendChild(makeBadge('Mayor', 'mayor'));
+
+  nameContainer.appendChild(document.createTextNode(' '));
+  nameContainer.appendChild(makeFavoriteStar('players', { name: player.name, uuid: player.uuid }));
 }
 
 function renderBody(bodyContainer, player) {

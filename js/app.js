@@ -3,6 +3,8 @@ import { fetchPlayer, renderPlayerDetail, mountPlayer } from './player.js';
 import { mountNation } from './nation.js';
 import { mountTown } from './town.js';
 import { mountTownless } from './townless.js';
+import { mountTopNations } from './topnations.js';
+import { mountFavorites } from './favoritesview.js';
 import { getPref, setPref, getCachedNations, getCacheStats } from './cache.js';
 import { ApiError, postNations, getApiStats } from './api.js';
 
@@ -93,6 +95,12 @@ function route() {
   } else if (params.get('view') === 'townless') {
     highlightNav('townless');
     mountTownless(mainView);
+  } else if (params.get('view') === 'nations') {
+    highlightNav('nations');
+    mountTopNations(mainView);
+  } else if (params.get('view') === 'favorites') {
+    highlightNav('favorites');
+    mountFavorites(mainView);
   } else {
     highlightNav('default');
     mountDefaultView();

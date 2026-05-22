@@ -1,6 +1,11 @@
 import { postNations, postTowns } from './api.js';
 import { cached, getPref, setPref } from './cache.js';
-import { formatGold, formatDate, makeCoordChip, makeEntityLink, loadingEl, errorEl } from './render.js';
+import { formatGold, formatDate, makeCoordChip, makeEntityLink, loadingEl, errorEl, fetchPlayersBatch } from './render.js';
+import { makeFavoriteStar } from './favorites.js';
+
+const DAY_MS = 86_400_000;
+const DELETION_THRESHOLD_DAYS = 42;
+const AT_RISK_WINDOW_DAYS = 7; // surfaces mayors inactive 35-42 days
 
 const TTL_NATION = 60_000;
 const TTL_TOWN_STATS = 60_000;
@@ -110,6 +115,13 @@ function buildTownTable(rows, sort, onSort) {
     const nameTd = document.createElement('td');
     const link = makeEntityLink('town', r.name);
     nameTd.appendChild(link);
+    if (r.isOverClaimed) {
+      const pill = document.createElement('span');
+      pill.className = 'overclaim-pill table-pill';
+      pill.textContent = 'OVER';
+      pill.title = 'Currently overclaimed — vulnerable to chunk loss';
+      nameTd.append(' ', pill);
+    }
     const mobileSuffix = document.createElement('span');
     mobileSuffix.className = 'mobile-balance';
     mobileSuffix.textContent = ` · ${r.balance.toLocaleString()}g`;
@@ -131,6 +143,89 @@ function buildTownTable(rows, sort, onSort) {
   return table;
 }
 
+function renderScanResults(container, overclaimed, atRisk, totalTowns) {
+  container.replaceChildren();
+
+  const summary = document.createElement('p');
+  summary.className = 'muted small';
+  summary.textContent = `Scanned ${totalTowns} towns · ${overclaimed.length} overclaimed · ${atRisk.length} at-risk`;
+  container.appendChild(summary);
+
+  if (overclaimed.length === 0 && atRisk.length === 0) {
+    const ok = document.createElement('p');
+    ok.className = 'muted';
+    ok.textContent = 'No vulnerabilities found.';
+    container.appendChild(ok);
+    return;
+  }
+
+  if (overclaimed.length > 0) {
+    const sec = document.createElement('div');
+    sec.className = 'scan-section';
+    const h4 = document.createElement('h4');
+    h4.textContent = `Overclaimed (${overclaimed.length})`;
+    sec.appendChild(h4);
+    const list = document.createElement('div');
+    list.className = 'fav-list';
+    for (const item of overclaimed) {
+      const row = document.createElement('div');
+      row.className = 'fav-row';
+      const left = document.createElement('span');
+      left.className = 'fav-name';
+      left.appendChild(makeEntityLink('town', item.town.name));
+      if (item.town.mayor) {
+        const sep = document.createElement('span');
+        sep.className = 'muted';
+        sep.textContent = ' · mayor ';
+        left.append(sep, makeEntityLink('player', item.town.mayor.name));
+      }
+      row.appendChild(left);
+      const right = document.createElement('span');
+      right.className = 'fav-stat';
+      const num = item.town.stats?.numTownBlocks ?? 0;
+      const max = item.town.stats?.maxTownBlocks ?? 0;
+      const ratio = max > 0 ? Math.round((num / max) * 100) : 0;
+      right.textContent = `${num}/${max} (${ratio}%)`;
+      row.appendChild(right);
+      list.appendChild(row);
+    }
+    sec.appendChild(list);
+    container.appendChild(sec);
+  }
+
+  if (atRisk.length > 0) {
+    const sec = document.createElement('div');
+    sec.className = 'scan-section';
+    const h4 = document.createElement('h4');
+    h4.textContent = `Mayor inactive ${DELETION_THRESHOLD_DAYS - AT_RISK_WINDOW_DAYS}–${DELETION_THRESHOLD_DAYS} days (${atRisk.length})`;
+    sec.appendChild(h4);
+    atRisk.sort((a, b) => b.daysInactive - a.daysInactive);
+    const list = document.createElement('div');
+    list.className = 'fav-list';
+    for (const item of atRisk) {
+      const row = document.createElement('div');
+      row.className = 'fav-row';
+      const left = document.createElement('span');
+      left.className = 'fav-name';
+      left.appendChild(makeEntityLink('town', item.town.name));
+      const sep = document.createElement('span');
+      sep.className = 'muted';
+      sep.textContent = ' · mayor ';
+      left.append(sep, makeEntityLink('player', item.mayor.name));
+      row.appendChild(left);
+      const right = document.createElement('span');
+      right.className = 'fav-stat';
+      const remaining = DELETION_THRESHOLD_DAYS - item.daysInactive;
+      right.textContent = `${item.daysInactive}d inactive · ${remaining}d to deletion`;
+      if (remaining <= 3) right.classList.add('urgent');
+      row.appendChild(right);
+      list.appendChild(row);
+    }
+    sec.appendChild(list);
+    container.appendChild(sec);
+  }
+}
+
 export async function mountNation(container, name) {
   container.replaceChildren(loadingEl(`Loading ${name}…`));
   let nation;
@@ -148,6 +243,8 @@ export async function mountNation(container, name) {
   header.className = 'module-header';
   const h2 = document.createElement('h2');
   h2.textContent = nation.name;
+  h2.appendChild(document.createTextNode(' '));
+  h2.appendChild(makeFavoriteStar('nations', { name: nation.name, uuid: nation.uuid }));
   header.appendChild(h2);
   if (nation.king) {
     const wrap = document.createElement('span');
@@ -209,11 +306,14 @@ export async function mountNation(container, name) {
 
     if (statsMap) {
       const rows = nation.towns.map(t => {
-        const ts = statsMap.get(t.name.toLowerCase())?.stats ?? {};
+        const full = statsMap.get(t.name.toLowerCase()) ?? {};
+        const ts = full.stats ?? {};
         return {
           name: t.name,
           residents: ts.numResidents ?? 0,
           balance: Math.round(ts.balance ?? 0),
+          isOverClaimed: full.status?.isOverClaimed ?? false,
+          mayorUuid: full.mayor?.uuid ?? null,
         };
       });
 
@@ -226,6 +326,67 @@ export async function mountNation(container, name) {
       }
 
       wrap.replaceChildren(buildTownTable(rows, sort, rerender));
+
+      // Vulnerability scan button + results
+      const scanSec = document.createElement('section');
+      scanSec.className = 'detail-section';
+      const scanControls = document.createElement('div');
+      scanControls.className = 'module-controls';
+      const scanBtn = document.createElement('button');
+      scanBtn.type = 'button';
+      scanBtn.className = 'refresh-btn-large';
+      const scanIcon = document.createElement('span');
+      scanIcon.className = 'icon';
+      scanIcon.textContent = '⚠';
+      const scanLabel = document.createElement('span');
+      scanLabel.textContent = 'Scan for vulnerable towns';
+      scanBtn.append(scanIcon, scanLabel);
+      scanControls.appendChild(scanBtn);
+      const scanHint = document.createElement('span');
+      scanHint.className = 'muted small';
+      scanHint.textContent = '+1 batched API call · finds overclaimed towns and mayors near 42-day deletion';
+      scanControls.appendChild(scanHint);
+      scanSec.appendChild(scanControls);
+      const scanResults = document.createElement('div');
+      scanResults.className = 'scan-results';
+      scanSec.appendChild(scanResults);
+      container.appendChild(scanSec);
+
+      scanBtn.addEventListener('click', async () => {
+        scanBtn.disabled = true;
+        scanBtn.classList.add('spinning');
+        scanResults.replaceChildren(loadingEl('Scanning mayors…'));
+        try {
+          const mayorUuids = rows.map(r => r.mayorUuid).filter(Boolean);
+          const mayors = mayorUuids.length > 0 ? await fetchPlayersBatch(mayorUuids) : new Map();
+          const now = Date.now();
+          const overclaimed = [];
+          const atRisk = [];
+          for (const r of rows) {
+            const full = statsMap.get(r.name.toLowerCase());
+            if (!full) continue;
+            if (r.isOverClaimed) overclaimed.push({ town: full });
+            if (r.mayorUuid) {
+              const mayor = mayors.get(r.mayorUuid);
+              const lastOnline = mayor?.timestamps?.lastOnline;
+              if (lastOnline) {
+                const daysInactive = Math.floor((now - lastOnline) / DAY_MS);
+                if (daysInactive >= DELETION_THRESHOLD_DAYS - AT_RISK_WINDOW_DAYS
+                    && daysInactive < DELETION_THRESHOLD_DAYS + 1) {
+                  atRisk.push({ town: full, mayor, daysInactive });
+                }
+              }
+            }
+          }
+          renderScanResults(scanResults, overclaimed, atRisk, rows.length);
+        } catch (err) {
+          console.error(err);
+          scanResults.replaceChildren(errorEl(`Scan failed: ${err.message}`));
+        } finally {
+          scanBtn.disabled = false;
+          scanBtn.classList.remove('spinning');
+        }
+      });
     }
   }
 
