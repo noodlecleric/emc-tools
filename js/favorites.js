@@ -92,6 +92,13 @@ export function subscribe(cb) {
   return () => subscribers.delete(cb);
 }
 
+// Cross-tab sync: when another tab modifies localStorage, refresh local UI.
+export function subscribeFavoritesStorageEvent() {
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'emc-tools:favorites') notify();
+  });
+}
+
 export function makeFavoriteStar(type, entity) {
   const btn = document.createElement('button');
   btn.type = 'button';

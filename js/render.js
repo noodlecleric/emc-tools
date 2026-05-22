@@ -58,16 +58,16 @@ export function registeredTier(ts) {
 export function makeCoordChip(x, z) {
   const xR = Math.round(x);
   const zR = Math.round(z);
-  const chip = document.createElement('button');
-  chip.type = 'button';
+  const chip = document.createElement('a');
   chip.className = 'coord-chip';
-  chip.title = 'Click to copy · Shift-click to open dynmap';
+  chip.href = `${DYNMAP_BASE}&x=${xR}&y=64&z=${zR}`;
+  chip.target = '_blank';
+  chip.rel = 'noopener';
+  chip.title = 'Click to open dynmap · Shift-click to copy x z';
   chip.textContent = `${xR}, ${zR}`;
   chip.addEventListener('click', (e) => {
-    if (e.shiftKey) {
-      window.open(`${DYNMAP_BASE}&x=${xR}&y=64&z=${zR}`, '_blank', 'noopener');
-      return;
-    }
+    if (!e.shiftKey) return; // default link behavior → opens dynmap
+    e.preventDefault();
     navigator.clipboard?.writeText(`${xR} ${zR}`).then(() => {
       chip.classList.add('copied');
       const original = chip.textContent;

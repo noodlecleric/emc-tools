@@ -2,6 +2,7 @@ import { postPlayers } from './api.js';
 import { cached } from './cache.js';
 import { formatGold, formatDate, formatDateTime, formatRelative, makeEntityLink, makeBadge, loadingEl, errorEl } from './render.js';
 import { makeFavoriteStar } from './favorites.js';
+import { makeBreadcrumb } from './breadcrumb.js';
 
 const TTL_PLAYER = 30_000;
 
@@ -97,7 +98,10 @@ function renderBody(bodyContainer, player) {
   }
 
   if (player.about) {
-    append(...rowEls('About', player.about));
+    const v = document.createElement('div');
+    v.className = 'value about-cell';
+    v.textContent = player.about;
+    append(...rowEls('About', v));
   }
 }
 
@@ -119,6 +123,13 @@ export async function mountPlayer(container, nameOrUuid) {
   }
 
   container.replaceChildren();
+
+  // Breadcrumb: Nation > Town > Player
+  const crumbs = [];
+  if (player.nation) crumbs.push({ type: 'nation', name: player.nation.name });
+  if (player.town) crumbs.push({ type: 'town', name: player.town.name });
+  crumbs.push({ type: 'player', name: player.name });
+  container.appendChild(makeBreadcrumb(crumbs));
 
   const card = document.createElement('div');
   card.className = 'player-module';

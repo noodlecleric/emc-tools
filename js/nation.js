@@ -1,15 +1,18 @@
-import { postNations, postTowns } from './api.js';
+import { postNations, postTowns, getOnline } from './api.js';
 import { cached, getPref, setPref } from './cache.js';
-import { formatGold, formatDate, makeCoordChip, makeEntityLink, loadingEl, errorEl, fetchPlayersBatch } from './render.js';
+import { formatGold, formatDate, makeCoordChip, makeEntityLink, makeLastSeenBadge, loadingEl, errorEl, fetchPlayersBatch } from './render.js';
 import { makeFavoriteStar } from './favorites.js';
+import { makeBreadcrumb } from './breadcrumb.js';
 
 const DAY_MS = 86_400_000;
 const DELETION_THRESHOLD_DAYS = 42;
-const AT_RISK_WINDOW_DAYS = 7; // surfaces mayors inactive 35-42 days
+const AT_RISK_WINDOW_DAYS = 7;
 
 const TTL_NATION = 60_000;
 const TTL_TOWN_STATS = 60_000;
+const TTL_ONLINE = 15_000;
 const SORT_PREF_KEY = 'townSort';
+const DEFAULT_BOARD = '/nation set board [msg]';
 
 async function fetchNation(name) {
   const res = await cached(`/nations:${name.toLowerCase()}`, TTL_NATION, () => postNations([name]));
@@ -70,9 +73,7 @@ function buildTownTable(rows, sort, onSort) {
   const sorted = [...rows].sort((a, b) => {
     const av = a[sort.column];
     const bv = b[sort.column];
-    if (typeof av === 'string') {
-      return sort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-    }
+    if (typeof av === 'string') return sort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
     return sort.dir === 'asc' ? (av - bv) : (bv - av);
   });
 
@@ -96,11 +97,8 @@ function buildTownTable(rows, sort, onSort) {
     if (col.key === sort.column) th.classList.add('sorted');
     th.addEventListener('click', () => {
       let next;
-      if (sort.column === col.key) {
-        next = { column: col.key, dir: sort.dir === 'asc' ? 'desc' : 'asc' };
-      } else {
-        next = { column: col.key, dir: col.numeric ? 'desc' : 'asc' };
-      }
+      if (sort.column === col.key) next = { column: col.key, dir: sort.dir === 'asc' ? 'desc' : 'asc' };
+      else next = { column: col.key, dir: col.numeric ? 'desc' : 'asc' };
       onSort(next);
     });
     headerRow.appendChild(th);
@@ -111,7 +109,6 @@ function buildTownTable(rows, sort, onSort) {
   const tbody = document.createElement('tbody');
   sorted.forEach(r => {
     const tr = document.createElement('tr');
-
     const nameTd = document.createElement('td');
     const link = makeEntityLink('town', r.name);
     nameTd.appendChild(link);
@@ -126,26 +123,21 @@ function buildTownTable(rows, sort, onSort) {
     mobileSuffix.className = 'mobile-balance';
     mobileSuffix.textContent = ` · ${r.balance.toLocaleString()}g`;
     nameTd.appendChild(mobileSuffix);
-
     const resTd = document.createElement('td');
     resTd.className = 'numeric';
     resTd.textContent = r.residents.toLocaleString();
-
     const balTd = document.createElement('td');
     balTd.className = 'numeric balance-col';
     balTd.textContent = `${r.balance.toLocaleString()}g`;
-
     tr.append(nameTd, resTd, balTd);
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);
-
   return table;
 }
 
 function renderScanResults(container, overclaimed, atRisk, totalTowns) {
   container.replaceChildren();
-
   const summary = document.createElement('p');
   summary.className = 'muted small';
   summary.textContent = `Scanned ${totalTowns} towns · ${overclaimed.length} overclaimed · ${atRisk.length} at-risk`;
@@ -168,8 +160,8 @@ function renderScanResults(container, overclaimed, atRisk, totalTowns) {
     const list = document.createElement('div');
     list.className = 'fav-list';
     for (const item of overclaimed) {
-      const row = document.createElement('div');
-      row.className = 'fav-row';
+      const rowEl = document.createElement('div');
+      rowEl.className = 'fav-row';
       const left = document.createElement('span');
       left.className = 'fav-name';
       left.appendChild(makeEntityLink('town', item.town.name));
@@ -179,15 +171,15 @@ function renderScanResults(container, overclaimed, atRisk, totalTowns) {
         sep.textContent = ' · mayor ';
         left.append(sep, makeEntityLink('player', item.town.mayor.name));
       }
-      row.appendChild(left);
+      rowEl.appendChild(left);
       const right = document.createElement('span');
       right.className = 'fav-stat';
       const num = item.town.stats?.numTownBlocks ?? 0;
       const max = item.town.stats?.maxTownBlocks ?? 0;
       const ratio = max > 0 ? Math.round((num / max) * 100) : 0;
       right.textContent = `${num}/${max} (${ratio}%)`;
-      row.appendChild(right);
-      list.appendChild(row);
+      rowEl.appendChild(right);
+      list.appendChild(rowEl);
     }
     sec.appendChild(list);
     container.appendChild(sec);
@@ -203,8 +195,8 @@ function renderScanResults(container, overclaimed, atRisk, totalTowns) {
     const list = document.createElement('div');
     list.className = 'fav-list';
     for (const item of atRisk) {
-      const row = document.createElement('div');
-      row.className = 'fav-row';
+      const rowEl = document.createElement('div');
+      rowEl.className = 'fav-row';
       const left = document.createElement('span');
       left.className = 'fav-name';
       left.appendChild(makeEntityLink('town', item.town.name));
@@ -212,25 +204,59 @@ function renderScanResults(container, overclaimed, atRisk, totalTowns) {
       sep.className = 'muted';
       sep.textContent = ' · mayor ';
       left.append(sep, makeEntityLink('player', item.mayor.name));
-      row.appendChild(left);
+      rowEl.appendChild(left);
       const right = document.createElement('span');
       right.className = 'fav-stat';
       const remaining = DELETION_THRESHOLD_DAYS - item.daysInactive;
       right.textContent = `${item.daysInactive}d inactive · ${remaining}d to deletion`;
       if (remaining <= 3) right.classList.add('urgent');
-      row.appendChild(right);
-      list.appendChild(row);
+      rowEl.appendChild(right);
+      list.appendChild(rowEl);
     }
     sec.appendChild(list);
     container.appendChild(sec);
   }
 }
 
+function onlineResidentCard(resident) {
+  const card = document.createElement('a');
+  card.className = 'player-card';
+  card.href = `?player=${encodeURIComponent(resident.name)}`;
+  card.title = resident.name;
+
+  const img = document.createElement('img');
+  img.src = `https://crafthead.net/avatar/${resident.uuid}/48`;
+  img.alt = '';
+  img.width = 48;
+  img.height = 48;
+  img.loading = 'lazy';
+  img.onerror = () => { img.style.visibility = 'hidden'; };
+
+  const name = document.createElement('span');
+  name.className = 'player-name';
+  name.textContent = resident.name;
+
+  card.append(img, name);
+  return card;
+}
+
+function offlineResidentRow(resident, lastSeen) {
+  const rowEl = document.createElement('div');
+  rowEl.className = 'offline-resident-row';
+  rowEl.appendChild(makeEntityLink('player', resident.name));
+  if (lastSeen !== undefined) rowEl.appendChild(makeLastSeenBadge(lastSeen));
+  return rowEl;
+}
+
 export async function mountNation(container, name) {
   container.replaceChildren(loadingEl(`Loading ${name}…`));
-  let nation;
+
+  let nation, online;
   try {
-    nation = await fetchNation(name);
+    [nation, online] = await Promise.all([
+      fetchNation(name),
+      cached('/online', TTL_ONLINE, getOnline),
+    ]);
   } catch (err) {
     container.replaceChildren(errorEl(err.message));
     return;
@@ -238,21 +264,62 @@ export async function mountNation(container, name) {
 
   container.replaceChildren();
 
-  // Header
+  // Breadcrumb
+  container.appendChild(makeBreadcrumb([{ type: 'nation', name: nation.name }]));
+
+  // Header with dynmap color accent
   const header = document.createElement('header');
   header.className = 'module-header';
+  if (nation.dynmapColour) {
+    header.style.borderBottomColor = `#${nation.dynmapColour}`;
+    header.style.borderBottomWidth = '3px';
+  }
   const h2 = document.createElement('h2');
   h2.textContent = nation.name;
   h2.appendChild(document.createTextNode(' '));
+  // Status chips
+  if (nation.status?.isPublic) h2.appendChild(makeStatusBadge('Public', 'public'));
+  if (nation.status?.isOpen) h2.appendChild(makeStatusBadge('Open', 'open'));
+  if (nation.status?.isNeutral) h2.appendChild(makeStatusBadge('Neutral', 'neutral'));
+  h2.appendChild(document.createTextNode(' '));
   h2.appendChild(makeFavoriteStar('nations', { name: nation.name, uuid: nation.uuid }));
   header.appendChild(h2);
+
+  const subline = document.createElement('span');
+  subline.className = 'muted module-subline';
   if (nation.king) {
-    const wrap = document.createElement('span');
-    wrap.className = 'muted';
-    wrap.append('led by ', makeEntityLink('player', nation.king.name));
-    header.appendChild(wrap);
+    subline.append('led by ', makeEntityLink('player', nation.king.name));
   }
+  if (nation.wiki) {
+    if (nation.king) subline.append(' · ');
+    const wikiLink = document.createElement('a');
+    wikiLink.href = nation.wiki;
+    wikiLink.target = '_blank';
+    wikiLink.rel = 'noopener';
+    wikiLink.className = 'wiki-link';
+    wikiLink.textContent = 'Wiki ↗';
+    subline.appendChild(wikiLink);
+  }
+  if (subline.childNodes.length > 0) header.appendChild(subline);
+
+  // Online count subheader (e.g. "7 of 101 online") — this is where the topbar count moved to
+  const residents = nation.residents ?? [];
+  const onlineUuids = new Set(online?.players?.map(p => p.uuid) ?? []);
+  const onlineResidents = residents.filter(r => onlineUuids.has(r.uuid));
+  const onlineHeader = document.createElement('span');
+  onlineHeader.className = 'nation-online-count';
+  onlineHeader.textContent = `${onlineResidents.length} of ${residents.length} online`;
+  header.appendChild(onlineHeader);
+
   container.appendChild(header);
+
+  // Board (skip if default placeholder)
+  if (nation.board && nation.board !== DEFAULT_BOARD) {
+    const boardEl = document.createElement('p');
+    boardEl.className = 'nation-board';
+    boardEl.textContent = nation.board;
+    container.appendChild(boardEl);
+  }
 
   // Stats grid
   const stats = document.createElement('div');
@@ -261,8 +328,14 @@ export async function mountNation(container, name) {
 
   stats.append(...row('Residents', valueText(String(s.numResidents ?? 0))));
   stats.append(...row('Towns', valueText(String(s.numTowns ?? 0))));
+  if (s.numTownBlocks != null) {
+    stats.append(...row('Area', valueText(`${s.numTownBlocks.toLocaleString()} blocks`)));
+  }
   stats.append(...row('Allies', valueText(String(s.numAllies ?? 0))));
   stats.append(...row('Enemies', valueText(String(s.numEnemies ?? 0))));
+  if (s.numOutlaws != null && s.numOutlaws > 0) {
+    stats.append(...row('Outlaws', valueText(String(s.numOutlaws))));
+  }
   stats.append(...row('Bank', valueText(formatGold(s.balance))));
   if (s.nationBonus != null) {
     const v = valueText(`${s.nationBonus.toLocaleString()} blocks`);
@@ -280,6 +353,57 @@ export async function mountNation(container, name) {
     stats.append(...row('Spawn', valueNode(makeCoordChip(x, z))));
   }
   container.appendChild(stats);
+
+  // Online residents (avatars grid)
+  const onlineSec = document.createElement('section');
+  onlineSec.className = 'detail-section';
+  const onlineH3 = document.createElement('h3');
+  onlineH3.textContent = `Online (${onlineResidents.length})`;
+  onlineSec.appendChild(onlineH3);
+  if (onlineResidents.length === 0) {
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = `No ${nation.name} residents online right now.`;
+    onlineSec.appendChild(p);
+  } else {
+    const grid = document.createElement('div');
+    grid.className = 'roster-list';
+    for (const r of onlineResidents) grid.appendChild(onlineResidentCard(r));
+    onlineSec.appendChild(grid);
+  }
+  container.appendChild(onlineSec);
+
+  // Offline residents (collapsible, async-enriched with last-seen)
+  const offlineResidents = residents.filter(r => !onlineUuids.has(r.uuid));
+  const offlineSec = document.createElement('details');
+  offlineSec.className = 'detail-section offline-collapsible';
+  const offlineSummary = document.createElement('summary');
+  offlineSummary.textContent = `Offline (${offlineResidents.length})`;
+  offlineSec.appendChild(offlineSummary);
+  const offlineList = document.createElement('div');
+  offlineList.className = 'offline-residents';
+  offlineSec.appendChild(offlineList);
+  container.appendChild(offlineSec);
+
+  if (offlineResidents.length === 0) {
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = 'Everyone is online.';
+    offlineList.appendChild(p);
+  } else {
+    // Render immediately without last-seen badges
+    for (const r of offlineResidents) offlineList.appendChild(offlineResidentRow(r));
+    // Enrich with last-seen async
+    fetchPlayersBatch(offlineResidents.map(r => r.uuid)).then(map => {
+      const enriched = offlineResidents
+        .map(r => ({ ...r, lastOnline: map.get(r.uuid)?.timestamps?.lastOnline ?? null }))
+        .sort((a, b) => (b.lastOnline ?? 0) - (a.lastOnline ?? 0));
+      offlineList.replaceChildren();
+      for (const r of enriched) offlineList.appendChild(offlineResidentRow(r, r.lastOnline));
+    }).catch((err) => {
+      console.warn('Failed to enrich offline residents with last-seen', err);
+    });
+  }
 
   // Towns section — sortable table
   if (nation.towns?.length) {
@@ -300,7 +424,6 @@ export async function mountNation(container, name) {
       statsMap = await fetchTownStats(nation.towns.map(t => t.name));
     } catch (err) {
       wrap.replaceChildren(errorEl(err.message));
-      // skip the table; still render allies/enemies below
       statsMap = null;
     }
 
@@ -327,7 +450,7 @@ export async function mountNation(container, name) {
 
       wrap.replaceChildren(buildTownTable(rows, sort, rerender));
 
-      // Vulnerability scan button + results
+      // Vulnerability scan
       const scanSec = document.createElement('section');
       scanSec.className = 'detail-section';
       const scanControls = document.createElement('div');
@@ -405,4 +528,11 @@ export async function mountNation(container, name) {
     section.appendChild(list);
     container.appendChild(section);
   }
+}
+
+function makeStatusBadge(text, kind) {
+  const b = document.createElement('span');
+  b.className = `status-chip status-${kind}`;
+  b.textContent = text;
+  return b;
 }

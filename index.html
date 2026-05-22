@@ -4,49 +4,56 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>emc-tools</title>
+  <meta name="description" content="Quick-glance EarthMC stats and lookups. Pin it, leave it open, glance at it between sessions.">
+  <meta property="og:title" content="emc-tools — EarthMC stats &amp; lookups">
+  <meta property="og:description" content="Pin-the-tab dashboard for EarthMC. Track your nation, browse all 131 nations, find vulnerable towns, spot recruitable nomads.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://noodlecleric.github.io/emc-tools/">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%8D%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="topbar" aria-label="Server stats">
-    <div class="topbar-row topbar-primary">
-      <div class="topbar-cell" data-cell="nation">
-        <button class="nation-switcher" id="nation-switcher" type="button" title="Click to change default nation">
-          <span class="cell-label" id="nation-name">…</span>
-        </button>
-        <input class="nation-input" id="nation-input" type="text" hidden placeholder="nation name" autocomplete="off">
-        <span class="cell-value">
-          <span id="nation-online">—</span>/<span id="nation-total">—</span>
-        </span>
-        <span class="cell-suffix">online</span>
-      </div>
-      <div class="topbar-cell" data-cell="vp" data-tooltip="Vote Party — cumulative votes from all players. When the target is reached, everyone gets in-game rewards.">
-        <span class="cell-label">VP in</span>
-        <span class="cell-value" id="vp-remaining">—</span>
-      </div>
-      <div class="topbar-cell" data-cell="server">
-        <span class="cell-value" id="server-online">—</span>
-        <span class="cell-suffix">on server</span>
-      </div>
-      <nav class="topbar-nav">
-        <a class="nav-link" href="?" data-nav="default">Roster</a>
-        <a class="nav-link" href="?view=nations" data-nav="nations">Nations</a>
-        <a class="nav-link" href="?view=townless" data-nav="townless">Nomads</a>
-        <a class="nav-link" href="?view=favorites" data-nav="favorites">★ Favorites</a>
-      </nav>
-      <button class="refresh-btn" id="refresh-btn" type="button" aria-label="Refresh now">⟳</button>
-    </div>
-    <div class="topbar-row topbar-secondary">
-      <span class="last-refresh" id="last-refresh"></span>
+  <noscript>
+    <p style="padding: 2rem; text-align: center; color: #ccc;">
+      emc-tools requires JavaScript to render. Please enable JS or use a browser that supports ES modules.
+    </p>
+  </noscript>
+
+  <header class="topbar" aria-label="Top bar">
+    <a class="wordmark" href="?" data-nav-wordmark>
+      <span class="wordmark-emoji" aria-hidden="true">🌍</span>
+      <span>emc-tools</span>
+    </a>
+
+    <div class="topbar-stats">
+      <span class="topbar-stat" data-tooltip="Vote Party — cumulative votes from all players. When the target is reached, everyone gets in-game rewards.">VP in <span id="vp-remaining">—</span></span>
       <span class="dim">·</span>
-      <span class="api-stats" id="api-stats">
-        <span class="api-stat" id="api-stat-req" data-tooltip="API requests sent in the last minute. EarthMC's rate limit is ~180/min. Goes yellow above 90/min, red above 150/min.">API: <span id="api-min">—</span>/min</span>
-        <span class="dim">·</span>
-        <span class="api-stat" id="api-stat-total" data-tooltip="Total API requests this session. Resets on page reload."><span id="api-total">—</span> total</span>
-        <span class="dim">·</span>
-        <span class="api-stat" id="api-stat-cache" data-tooltip="Cache hit rate this session — how often a request was served from the in-memory cache instead of hitting the EMC API. Higher is better. Steady-state should sit at 70-90%.">cache <span id="cache-pct">—</span>%</span>
-      </span>
+      <span class="topbar-stat"><span id="server-online">—</span> online</span>
+    </div>
+
+    <nav class="topbar-nav" aria-label="Primary">
+      <a class="nav-link" href="?" data-nav="home">Home</a>
+      <a class="nav-link" href="?view=nations" data-nav="nations">Nations</a>
+      <a class="nav-link" href="?view=townless" data-nav="townless">Nomads</a>
+      <a class="nav-link" href="?view=favorites" data-nav="favorites">★ Favorites</a>
+    </nav>
+
+    <button class="refresh-btn" id="refresh-btn" type="button" aria-label="Refresh">⟳</button>
+    <button class="settings-btn" id="settings-btn" type="button" aria-label="Settings" title="Settings">⚙</button>
+
+    <div class="settings-panel" id="settings-panel" hidden role="dialog" aria-label="Settings">
+      <h3>Settings</h3>
+      <label class="settings-label" for="default-nation-input">Home nation</label>
+      <p class="muted small">Currently: <span id="default-nation-current" class="mono">…</span></p>
+      <input type="text" id="default-nation-input" class="settings-input" placeholder="Type nation name + Enter" autocomplete="off">
     </div>
   </header>
+
+  <div class="error-banner" id="error-banner" hidden role="alert">
+    <span id="error-banner-message"></span>
+    <button class="error-banner-close" id="error-banner-close" type="button" aria-label="Dismiss">×</button>
+  </div>
 
   <div class="search-bar">
     <div class="search-types" role="tablist" aria-label="Search type">
@@ -68,7 +75,18 @@
   </main>
 
   <footer class="site-footer">
-    <a href="https://github.com/noodlecleric/emc-tools" target="_blank" rel="noopener">github.com/noodlecleric/emc-tools</a>
+    <div class="footer-diagnostics">
+      <span class="last-refresh" id="last-refresh"></span>
+      <span class="dim footer-sep">·</span>
+      <span class="api-stats" id="api-stats">
+        <span class="api-stat" id="api-stat-req" data-tooltip="API requests sent in the last minute. EarthMC's rate limit is ~180/min. Goes yellow above 90/min, red above 150/min.">API: <span id="api-min">—</span>/min</span>
+        <span class="dim">·</span>
+        <span class="api-stat" id="api-stat-total" data-tooltip="Total API requests this session. Resets on page reload."><span id="api-total">—</span> total</span>
+        <span class="dim">·</span>
+        <span class="api-stat" id="api-stat-cache" data-tooltip="Cache hit rate this session — how often a request was served from the in-memory cache instead of hitting the EMC API. Higher is better. Steady-state should sit at 70-90%.">cache <span id="cache-pct">—</span>%</span>
+      </span>
+    </div>
+    <a href="https://github.com/noodlecleric/emc-tools" target="_blank" rel="noopener" class="footer-repo">github.com/noodlecleric/emc-tools</a>
   </footer>
 
   <script type="module" src="js/app.js"></script>

@@ -2,6 +2,7 @@ import { postTowns, getOnline } from './api.js';
 import { cached } from './cache.js';
 import { formatGold, formatDate, makeCoordChip, makeEntityLink, makeLastSeenBadge, loadingEl, errorEl, fetchPlayersBatch } from './render.js';
 import { makeFavoriteStar } from './favorites.js';
+import { makeBreadcrumb } from './breadcrumb.js';
 
 const TTL_TOWN = 60_000;
 const TTL_ONLINE = 15_000;
@@ -73,6 +74,12 @@ export async function mountTown(container, name) {
   }
 
   container.replaceChildren();
+
+  // Breadcrumb: Nation > Town
+  const crumbs = [];
+  if (town.nation) crumbs.push({ type: 'nation', name: town.nation.name });
+  crumbs.push({ type: 'town', name: town.name });
+  container.appendChild(makeBreadcrumb(crumbs));
 
   // Header
   const header = document.createElement('header');
