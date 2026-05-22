@@ -26,6 +26,52 @@ function makeAvatarCard(resident) {
   return card;
 }
 
+function renderFeatureCards(container) {
+  const sec = document.createElement('section');
+  sec.className = 'landing-features';
+  sec.setAttribute('aria-label', 'What you can do here');
+
+  const cards = [
+    {
+      title: 'Nations',
+      href: '?view=nations',
+      desc: 'Every nation on the server, ranked by activity. Spot who is growing and who is bleeding members.',
+      cta: 'Browse nations →',
+    },
+    {
+      title: 'Nomads',
+      href: '?view=townless',
+      desc: 'Townless players currently online. Useful for recruiting newcomers or scouting fresh arrivals.',
+      cta: 'See online nomads →',
+    },
+    {
+      title: '★ Favorites',
+      href: '?view=favorites',
+      desc: 'Pin nations, towns, and players to your personal watchlist with live online status.',
+      cta: 'Open favorites →',
+    },
+  ];
+
+  for (const card of cards) {
+    const a = document.createElement('a');
+    a.className = 'feature-card';
+    a.href = card.href;
+    const title = document.createElement('h3');
+    title.className = 'feature-card-title';
+    title.textContent = card.title;
+    const desc = document.createElement('p');
+    desc.className = 'feature-card-desc';
+    desc.textContent = card.desc;
+    const cta = document.createElement('span');
+    cta.className = 'feature-card-cta';
+    cta.textContent = card.cta;
+    a.append(title, desc, cta);
+    sec.appendChild(a);
+  }
+
+  container.appendChild(sec);
+}
+
 async function renderHomeNationOnline(container, nationName) {
   const sec = document.createElement('section');
   sec.className = 'landing-home-nation';
@@ -149,6 +195,9 @@ export async function mountLanding(container) {
     quick.appendChild(link);
     container.appendChild(quick);
   }
+
+  // Feature cards (discovery aid)
+  renderFeatureCards(container);
 
   // Server stats
   const statsSec = el('section', 'landing-stats');

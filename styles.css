@@ -218,15 +218,105 @@ main { flex: 1; }
 }
 .error-banner-close:hover { background: rgba(239, 68, 68, 0.18); }
 
-/* ===== Search bar ===== */
+/* ===== Search trigger + overlay ===== */
 
-.search-bar {
+.search-trigger {
+  flex-shrink: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: color 120ms, border-color 120ms;
+}
+.search-trigger:hover { color: var(--text); border-color: var(--text); }
+.search-trigger-icon { font-size: 14px; line-height: 1; }
+.search-trigger-label { font-weight: 500; }
+.search-trigger-kbd {
+  font-family: var(--mono);
+  font-size: 10px;
+  background: var(--border);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--muted);
+}
+
+.search-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 96px;
+}
+.search-overlay[hidden] { display: none; }
+
+.search-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(2px);
+}
+
+.search-overlay-panel {
+  position: relative;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 560px;
+  max-width: calc(100vw - 2rem);
+  padding: 1.25rem;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+  z-index: 1;
+}
+
+.search-overlay-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.75rem;
-  max-width: 960px;
-  margin: 1.25rem auto 0;
-  padding: 0 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.search-overlay-close {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.search-overlay-close:hover { color: var(--text); border-color: var(--text); }
+
+.search-overlay-help {
+  margin: 0.75rem 0 0;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  font-family: var(--mono);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .search-types {
@@ -344,6 +434,50 @@ main {
 }
 
 /* ===== Landing page ===== */
+
+.landing-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.feature-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.1rem 1.25rem;
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: border-color 120ms, transform 120ms;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+.feature-card:hover {
+  border-color: var(--link);
+  transform: translateY(-1px);
+}
+.feature-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text);
+}
+.feature-card-desc {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.55;
+  flex: 1;
+}
+.feature-card-cta {
+  margin-top: 0.25rem;
+  font-size: 12px;
+  color: var(--link);
+  font-family: var(--mono);
+}
 
 .landing-intro { margin-bottom: 2rem; }
 .landing-title {
@@ -1059,15 +1193,19 @@ main {
   .refresh-btn, .settings-btn { width: 28px; height: 28px; font-size: 14px; }
   .settings-panel { right: 0.5rem; width: calc(100vw - 1rem); max-width: 320px; }
 
-  .search-bar {
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    padding: 0 0.75rem;
-    margin-top: 0.75rem;
+  .search-overlay { padding-top: 0; align-items: stretch; }
+  .search-overlay-panel {
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    border-radius: 0;
+    border: none;
   }
-  .search-input-wrap { width: 100%; order: 1; }
-  .search-types { order: 2; width: 100%; justify-content: center; }
+  .search-trigger-label, .search-trigger-kbd { display: none; }
+  .search-trigger { padding: 5px 8px; }
+  .search-types { width: 100%; justify-content: center; }
   .search-type { flex: 1; text-align: center; }
+  .landing-features { grid-template-columns: 1fr; }
 
   main { padding: 1rem 0.75rem; }
 

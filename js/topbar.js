@@ -1,5 +1,5 @@
 import { getServer, ApiError, postNations, getApiStats } from './api.js';
-import { cached, getPref, setPref, getCachedNations, getCacheStats, invalidate } from './cache.js';
+import { cached, getPref, setPref, getCacheStats, invalidate } from './cache.js';
 
 const REFRESH_INTERVAL = 30_000;
 const RATE_LIMIT_BACKOFF = 5 * 60_000;
@@ -25,10 +25,6 @@ const els = {
   apiTotal: null,
   cachePct: null,
   apiStats: null,
-  searchInput: null,
-  searchGo: null,
-  searchSuggestions: null,
-  searchTypes: null,
 };
 
 function grabEls() {
@@ -44,10 +40,6 @@ function grabEls() {
   els.apiTotal = document.getElementById('api-total');
   els.cachePct = document.getElementById('cache-pct');
   els.apiStats = document.getElementById('api-stats');
-  els.searchInput = document.getElementById('search-input');
-  els.searchGo = document.getElementById('search-go');
-  els.searchSuggestions = document.getElementById('search-suggestions');
-  els.searchTypes = document.querySelectorAll('.search-type');
 }
 
 function updateApiStats() {
@@ -161,73 +153,6 @@ function setupSettings() {
   });
 }
 
-function setupSearch() {
-  const input = els.searchInput;
-  const go = els.searchGo;
-  const suggestions = els.searchSuggestions;
-  const types = els.searchTypes;
-  if (!input) return;
-  let currentType = 'nation';
-  let nationsList = null;
-
-  function setType(type) {
-    currentType = type;
-    types.forEach(b => b.classList.toggle('active', b.dataset.type === type));
-    input.placeholder = type === 'nation' ? 'Search nations…'
-      : type === 'town' ? 'Town name…'
-      : 'Player name…';
-    updateSuggestions();
-  }
-
-  function submitSearch() {
-    const value = input.value.trim();
-    if (!value) { input.focus(); return; }
-    history.pushState({}, '', `?${currentType}=${encodeURIComponent(value)}`);
-    if (routeFn) routeFn();
-    input.value = '';
-    suggestions.hidden = true;
-  }
-
-  types.forEach(btn => btn.addEventListener('click', () => setType(btn.dataset.type)));
-  go.addEventListener('click', submitSearch);
-
-  async function updateSuggestions() {
-    if (currentType !== 'nation') { suggestions.hidden = true; return; }
-    if (!nationsList) {
-      try { nationsList = await getCachedNations(); } catch { nationsList = []; }
-    }
-    const q = input.value.trim().toLowerCase();
-    if (!q) { suggestions.hidden = true; return; }
-    const matches = nationsList.filter(n => n.name.toLowerCase().includes(q)).slice(0, 8);
-    if (matches.length === 0) { suggestions.hidden = true; return; }
-    suggestions.replaceChildren();
-    matches.forEach(n => {
-      const item = document.createElement('a');
-      item.href = `?nation=${encodeURIComponent(n.name)}`;
-      item.className = 'search-suggestion';
-      item.textContent = n.name;
-      item.addEventListener('click', () => {
-        input.value = '';
-        suggestions.hidden = true;
-      });
-      suggestions.appendChild(item);
-    });
-    suggestions.hidden = false;
-  }
-
-  input.addEventListener('input', updateSuggestions);
-  input.addEventListener('focus', updateSuggestions);
-  input.addEventListener('blur', () => setTimeout(() => { suggestions.hidden = true; }, 200));
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') submitSearch();
-    else if (e.key === 'Escape') {
-      input.value = '';
-      suggestions.hidden = true;
-      input.blur();
-    }
-  });
-}
-
 export function mountTopbar({ onRefresh }) {
   grabEls();
   routeFn = onRefresh;
@@ -240,7 +165,6 @@ export function mountTopbar({ onRefresh }) {
   });
 
   setupSettings();
-  setupSearch();
 
   refreshTopbarStats();
   setInterval(refreshTopbarStats, REFRESH_INTERVAL);

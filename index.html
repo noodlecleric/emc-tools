@@ -39,6 +39,11 @@
       <a class="nav-link" href="?view=favorites" data-nav="favorites">★ Favorites</a>
     </nav>
 
+    <button class="search-trigger" id="search-trigger" type="button" aria-label="Open search">
+      <span class="search-trigger-icon" aria-hidden="true">⌕</span>
+      <span class="search-trigger-label">Search</span>
+      <kbd class="search-trigger-kbd">⌘K</kbd>
+    </button>
     <button class="refresh-btn" id="refresh-btn" type="button" aria-label="Refresh">⟳</button>
     <button class="settings-btn" id="settings-btn" type="button" aria-label="Settings" title="Settings">⚙</button>
 
@@ -53,19 +58,6 @@
   <div class="error-banner" id="error-banner" hidden role="alert">
     <span id="error-banner-message"></span>
     <button class="error-banner-close" id="error-banner-close" type="button" aria-label="Dismiss">×</button>
-  </div>
-
-  <div class="search-bar">
-    <div class="search-types" role="tablist" aria-label="Search type">
-      <button class="search-type active" type="button" data-type="nation">Nation</button>
-      <button class="search-type" type="button" data-type="town">Town</button>
-      <button class="search-type" type="button" data-type="player">Player</button>
-    </div>
-    <div class="search-input-wrap">
-      <input id="search-input" class="search-input" type="text" placeholder="Search nations…" autocomplete="off">
-      <button id="search-go" class="search-go" type="button" aria-label="Search">⌕</button>
-      <div class="search-suggestions" id="search-suggestions" hidden role="listbox"></div>
-    </div>
   </div>
 
   <main>
