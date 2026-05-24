@@ -1,5 +1,5 @@
 const BASE = 'https://api.earthmc.net/v4';
-const DEFAULT_TIMEOUT = 10_000;
+const DEFAULT_TIMEOUT = 20_000; // bumped from 10s — EMC API can spike during server-saves
 
 export class ApiError extends Error {
   constructor(status, path, body) {

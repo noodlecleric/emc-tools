@@ -26,9 +26,14 @@ function isEntryFresh(entry) {
 }
 
 async function fetchTownlessOnline() {
-  const online = await cached('/online', TTL_ONLINE, getOnline);
+  let online;
+  try {
+    online = await cached('/online', TTL_ONLINE, getOnline);
+  } catch (err) {
+    throw new Error(`Couldn't fetch the online players list (${err.message}). Tap Refresh to retry.`);
+  }
   const players = online?.players ?? [];
-  if (players.length === 0) return { nomads: [], freshFetches: 0 };
+  if (players.length === 0) return { nomads: [], freshFetches: 0, failedChunks: 0 };
 
   const map = loadHasTownMap();
   const now = Date.now();
