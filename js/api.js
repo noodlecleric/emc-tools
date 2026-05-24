@@ -59,6 +59,6 @@ async function request(path, { method = 'GET', body, timeout = DEFAULT_TIMEOUT }
 
 export const getServer = () => request('/');
 export const getOnline = () => request('/online');
-export const postNations = (names) => request('/nations', { method: 'POST', body: { query: names } });
-export const postTowns = (names) => request('/towns', { method: 'POST', body: { query: names } });
-export const postPlayers = (names) => request('/players', { method: 'POST', body: { query: names } });
+export const postNations = (names, opts) => request('/nations', { method: 'POST', body: { query: names }, ...opts });
+export const postTowns = (names, opts) => request('/towns', { method: 'POST', body: { query: names }, ...opts });
+export const postPlayers = (names, opts) => request('/players', { method: 'POST', body: { query: names }, ...opts });

@@ -131,16 +131,28 @@ export function errorEl(message) {
 }
 
 const TTL_PLAYERS_BATCH = 60_000;
+const BATCH_TIMEOUT_MS = 25_000; // higher than the default 10s — these can be slow during server-saves
 
 export async function fetchPlayersBatch(uuids) {
   if (!uuids.length) return new Map();
   const chunkSize = 100;
   const result = new Map();
+  let failedChunks = 0;
   for (let i = 0; i < uuids.length; i += chunkSize) {
     const chunk = uuids.slice(i, i + chunkSize);
     const key = `/players-batch:${chunk.slice().sort().join(',')}`;
-    const players = await cached(key, TTL_PLAYERS_BATCH, () => postPlayers(chunk));
-    for (const p of players ?? []) result.set(p.uuid, p);
+    try {
+      const players = await cached(key, TTL_PLAYERS_BATCH, () => postPlayers(chunk, { timeout: BATCH_TIMEOUT_MS }));
+      for (const p of players ?? []) result.set(p.uuid, p);
+    } catch (err) {
+      // One chunk failing shouldn't kill the whole view — log and continue.
+      // Unknown UUIDs naturally retry next call since they don't make it into the cache.
+      failedChunks++;
+      console.warn(`fetchPlayersBatch: chunk ${i}-${i + chunk.length} failed (${err.message})`);
+    }
+  }
+  if (failedChunks > 0) {
+    console.warn(`fetchPlayersBatch: ${failedChunks} of ${Math.ceil(uuids.length / chunkSize)} chunks failed; returning partial results`);
   }
   return result;
 }
