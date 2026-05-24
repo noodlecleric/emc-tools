@@ -25,7 +25,14 @@ function isEntryFresh(entry) {
   return entry && (Date.now() - entry.checkedAt < HAS_TOWN_TTL);
 }
 
-async function fetchTownlessOnline() {
+/**
+ * Streams nomads via callbacks:
+ *  - onNomad(nomad): one nomad ready to render
+ *  - onProgress({ completed, total, nomadsFound, failed }): batch progress
+ * Cached nomads emit synchronously after /online resolves;
+ * unknown UUIDs are checked in parallel and stream as each chunk finishes.
+ */
+async function fetchTownlessOnline({ onProgress, onNomad } = {}) {
   let online;
   try {
     online = await cached('/online', TTL_ONLINE, getOnline);
@@ -33,47 +40,67 @@ async function fetchTownlessOnline() {
     throw new Error(`Couldn't fetch the online players list (${err.message}). Tap Refresh to retry.`);
   }
   const players = online?.players ?? [];
-  if (players.length === 0) return { nomads: [], freshFetches: 0, failedChunks: 0 };
+  if (players.length === 0) {
+    if (onProgress) onProgress({ completed: 0, total: 0, nomadsFound: 0, failed: 0 });
+    return { freshFetches: 0, failedChunks: 0 };
+  }
 
   const map = loadHasTownMap();
   const now = Date.now();
+  const onlineByUuid = new Map();
+  for (const p of players) onlineByUuid.set(p.uuid, p);
 
+  let nomadsFound = 0;
   const unknownUuids = [];
   for (const p of players) {
-    if (!isEntryFresh(map.get(p.uuid))) unknownUuids.push(p.uuid);
-  }
-
-  let freshFetches = 0;
-  if (unknownUuids.length > 0) {
-    const fetched = await fetchPlayersBatch(unknownUuids);
-    freshFetches = Math.ceil(unknownUuids.length / 100);
-    for (const [uuid, player] of fetched) {
-      const stats = player.stats ?? {};
-      const entry = {
-        hasTown: player.status?.hasTown ?? false,
-        registered: player.timestamps?.registered ?? null,
-        checkedAt: now,
-      };
-      if ('balance' in stats) entry.balance = stats.balance;
-      map.set(uuid, entry);
-    }
-    saveHasTownMap(map);
-  }
-
-  const nomads = [];
-  for (const p of players) {
     const entry = map.get(p.uuid);
-    if (entry && entry.hasTown === false) {
-      nomads.push({
-        name: p.name,
-        uuid: p.uuid,
-        registered: entry.registered,
-        balance: entry.balance,
-      });
+    if (isEntryFresh(entry)) {
+      if (entry.hasTown === false) {
+        if (onNomad) onNomad({ name: p.name, uuid: p.uuid, registered: entry.registered });
+        nomadsFound++;
+      }
+    } else {
+      unknownUuids.push(p.uuid);
     }
   }
-  nomads.sort((a, b) => (b.registered ?? 0) - (a.registered ?? 0));
-  return { nomads, freshFetches };
+
+  if (onProgress) onProgress({ completed: 0, total: 0, nomadsFound, failed: 0 });
+
+  if (unknownUuids.length === 0) {
+    return { freshFetches: 0, failedChunks: 0 };
+  }
+
+  const batchResult = await fetchPlayersBatch(unknownUuids, {
+    onChunk: ({ completed, total, failed, players: chunkPlayers }) => {
+      for (const player of chunkPlayers) {
+        const stats = player.stats ?? {};
+        const entry = {
+          hasTown: player.status?.hasTown ?? false,
+          registered: player.timestamps?.registered ?? null,
+          checkedAt: now,
+        };
+        if ('balance' in stats) entry.balance = stats.balance;
+        map.set(player.uuid, entry);
+
+        if (entry.hasTown === false) {
+          const onlinePlayer = onlineByUuid.get(player.uuid);
+          if (onlinePlayer) {
+            if (onNomad) onNomad({
+              name: onlinePlayer.name,
+              uuid: onlinePlayer.uuid,
+              registered: entry.registered,
+            });
+            nomadsFound++;
+          }
+        }
+      }
+      if (onProgress) onProgress({ completed, total, nomadsFound, failed });
+    },
+  });
+
+  saveHasTownMap(map);
+
+  return { freshFetches: batchResult.totalChunks, failedChunks: batchResult.failedChunks };
 }
 
 function nomadCard(nomad) {
@@ -82,6 +109,7 @@ function nomadCard(nomad) {
   card.href = `?player=${encodeURIComponent(nomad.name)}`;
   card.dataset.entity = 'player';
   card.dataset.name = nomad.name;
+  card.dataset.registered = String(nomad.registered ?? 0);
   card.title = nomad.name;
 
   const img = document.createElement('img');
@@ -98,6 +126,20 @@ function nomadCard(nomad) {
 
   card.append(img, name, makeRegisteredBadge(nomad.registered));
   return card;
+}
+
+function insertNomadSorted(grid, nomad) {
+  const card = nomadCard(nomad);
+  const newReg = nomad.registered ?? 0;
+  const existingCards = grid.querySelectorAll('.player-card');
+  for (const existing of existingCards) {
+    const existingReg = parseInt(existing.dataset.registered ?? '0', 10);
+    if (newReg > existingReg) {
+      grid.insertBefore(card, existing);
+      return;
+    }
+  }
+  grid.appendChild(card);
 }
 
 export async function mountTownless(container) {
@@ -152,20 +194,45 @@ export async function mountTownless(container) {
     grid.replaceChildren(loadingEl('Looking for online nomads…'));
     status.textContent = '';
     invalidate('/online');
+
     try {
       const start = Date.now();
-      const { nomads, freshFetches } = await fetchTownlessOnline();
+      let nomadCount = 0;
+      let clearedLoading = false;
+
+      const result = await fetchTownlessOnline({
+        onProgress: ({ completed, total, nomadsFound, failed }) => {
+          if (total === 0) {
+            status.textContent = nomadsFound > 0
+              ? `${nomadsFound} from cache · checking new players…`
+              : 'Checking online players…';
+          } else {
+            const failedSuffix = failed > 0 ? ` · ${failed} failed` : '';
+            status.textContent = `Checking ${completed}/${total} batches · ${nomadsFound} nomads so far${failedSuffix}`;
+          }
+        },
+        onNomad: (nomad) => {
+          if (!clearedLoading) {
+            grid.replaceChildren();
+            clearedLoading = true;
+          }
+          insertNomadSorted(grid, nomad);
+          nomadCount++;
+        },
+      });
+
       const ms = Date.now() - start;
-      status.textContent = `${nomads.length} found · ${freshFetches} new lookup${freshFetches === 1 ? '' : 's'} · ${ms}ms`;
-      grid.replaceChildren();
-      if (nomads.length === 0) {
+
+      if (nomadCount === 0) {
         const p = document.createElement('p');
         p.className = 'muted';
         p.textContent = 'No online nomads right now.';
-        grid.appendChild(p);
-        return;
+        grid.replaceChildren(p);
       }
-      for (const n of nomads) grid.appendChild(nomadCard(n));
+
+      const lookupsLabel = `${result.freshFetches} new lookup${result.freshFetches === 1 ? '' : 's'}`;
+      const failedSuffix = result.failedChunks > 0 ? ` · ${result.failedChunks} failed` : '';
+      status.textContent = `${nomadCount} found · ${lookupsLabel}${failedSuffix} · ${ms}ms`;
     } catch (err) {
       console.error(err);
       grid.replaceChildren(errorEl(`Failed: ${err.message}`));

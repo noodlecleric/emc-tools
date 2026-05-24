@@ -10,7 +10,13 @@ export async function fetchPlayer(nameOrUuid) {
   const key = `/players:${nameOrUuid.toLowerCase()}`;
   const res = await cached(key, TTL_PLAYER, () => postPlayers([nameOrUuid]));
   const player = res && res[0];
-  if (!player) throw new Error(`Player "${nameOrUuid}" not found`);
+  if (!player) {
+    // EMC returns [] for opted-out players (privacy feature), unknown names,
+    // and stale/deleted accounts alike. We can't distinguish; surface a useful UI elsewhere.
+    const err = new Error(`No public data for "${nameOrUuid}"`);
+    err.code = 'NO_PUBLIC_DATA';
+    throw err;
+  }
   return player;
 }
 
@@ -111,6 +117,77 @@ export function renderPlayerDetail(player, bodyContainer, nameHeader) {
   renderBody(bodyContainer, player);
 }
 
+function renderUnavailable(container, nameOrUuid, err) {
+  container.replaceChildren();
+  container.appendChild(makeBreadcrumb([{ type: 'player', name: nameOrUuid }]));
+
+  const card = document.createElement('div');
+  card.className = 'player-module';
+
+  const header = document.createElement('header');
+  header.className = 'player-module-header';
+
+  const avatar = document.createElement('img');
+  avatar.className = 'player-module-avatar';
+  // crafthead works off Mojang's UUID/name database, independent of EMC's opt-out
+  avatar.src = `https://crafthead.net/avatar/${encodeURIComponent(nameOrUuid)}/64`;
+  avatar.alt = '';
+  avatar.width = 64;
+  avatar.height = 64;
+  avatar.loading = 'lazy';
+  avatar.onerror = () => { avatar.style.visibility = 'hidden'; };
+
+  const h2 = document.createElement('h2');
+  h2.textContent = nameOrUuid;
+
+  header.append(avatar, h2);
+  card.appendChild(header);
+
+  const body = document.createElement('div');
+  body.className = 'detail-grid';
+
+  // Pick the right framing based on what actually went wrong
+  const isAbort = err && (err.code === 'NO_PUBLIC_DATA' ? false : /abort/i.test(err.message || ''));
+  const isNoData = err && err.code === 'NO_PUBLIC_DATA';
+
+  if (isNoData) {
+    body.append(...rowEls('Status', 'No data found', true));
+  } else if (isAbort) {
+    body.append(...rowEls('Status', 'API timed out', true));
+  } else {
+    body.append(...rowEls('Status', 'Lookup failed', true));
+  }
+  card.appendChild(body);
+
+  const note = document.createElement('p');
+  note.className = 'muted small';
+  note.style.marginTop = '1rem';
+  if (isNoData) {
+    note.textContent = "EarthMC's API returned no data for this name. Possible reasons: opted out of the public API, never played on EarthMC, renamed, or the account is gone. The API returns the same empty response for all of these — they can't be told apart without cross-referencing Mojang.";
+  } else if (isAbort) {
+    note.textContent = "The EarthMC API didn't respond in time. It's often slow during server-saves (~every 5 min) and on busy days. Try again in a moment.";
+  } else {
+    note.textContent = `Couldn't load player data: ${err?.message || 'unknown error'}.`;
+  }
+  card.appendChild(note);
+
+  // Retry button — useful for both timeouts and (rarely) opt-out toggling
+  const retryBtn = document.createElement('button');
+  retryBtn.type = 'button';
+  retryBtn.className = 'refresh-btn-large';
+  retryBtn.style.marginTop = '1rem';
+  const icon = document.createElement('span');
+  icon.className = 'icon';
+  icon.textContent = '⟳';
+  const label = document.createElement('span');
+  label.textContent = 'Try again';
+  retryBtn.append(icon, label);
+  retryBtn.addEventListener('click', () => mountPlayer(container, nameOrUuid));
+  card.appendChild(retryBtn);
+
+  container.appendChild(card);
+}
+
 // Full-page player module
 export async function mountPlayer(container, nameOrUuid) {
   container.replaceChildren(loadingEl(`Loading ${nameOrUuid}…`));
@@ -118,7 +195,9 @@ export async function mountPlayer(container, nameOrUuid) {
   try {
     player = await fetchPlayer(nameOrUuid);
   } catch (err) {
-    container.replaceChildren(errorEl(err.message));
+    // Always render the friendly unavailable view, regardless of failure mode.
+    // It branches on the error to explain what actually happened + offers retry.
+    renderUnavailable(container, nameOrUuid, err);
     return;
   }
 

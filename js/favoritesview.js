@@ -142,7 +142,7 @@ export async function mountFavorites(container) {
       for (const fav of favs.nations) {
         const found = data?.find(n => n.name.toLowerCase() === fav.name.toLowerCase());
         if (!found) {
-          list.appendChild(favoriteRow('nation', fav.name, 'not found', favs.nations.indexOf(fav), favs.nations.length, (f, t) => reorderAndRemount(container, 'nations', f, t)));
+          list.appendChild(favoriteRow('nation', fav.name, 'no longer exists', favs.nations.indexOf(fav), favs.nations.length, (f, t) => reorderAndRemount(container, 'nations', f, t)));
           continue;
         }
         const residents = found.residents ?? [];
@@ -176,7 +176,7 @@ export async function mountFavorites(container) {
       for (const fav of favs.towns) {
         const found = data?.find(t => t.name.toLowerCase() === fav.name.toLowerCase());
         if (!found) {
-          list.appendChild(favoriteRow('town', fav.name, 'not found', favs.towns.indexOf(fav), favs.towns.length, (f, t) => reorderAndRemount(container, 'towns', f, t)));
+          list.appendChild(favoriteRow('town', fav.name, 'ruined or deleted', favs.towns.indexOf(fav), favs.towns.length, (f, t) => reorderAndRemount(container, 'towns', f, t)));
           continue;
         }
         const residents = found.residents ?? [];
@@ -225,7 +225,7 @@ export async function mountFavorites(container) {
           || p.name?.toLowerCase() === fav.name.toLowerCase()
         );
         if (!found) {
-          list.appendChild(favoriteRow('player', fav.name, 'not found', favs.players.indexOf(fav), favs.players.length, (f, t) => reorderAndRemount(container, 'players', f, t)));
+          list.appendChild(favoriteRow('player', fav.name, 'private / no public data', favs.players.indexOf(fav), favs.players.length, (f, t) => reorderAndRemount(container, 'players', f, t)));
           continue;
         }
         const isOnline = onlineUuids.has(found.uuid);
