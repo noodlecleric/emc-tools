@@ -3,6 +3,35 @@ import { cached } from './cache.js';
 
 const DYNMAP_BASE = 'https://map.earthmc.net/?worldname=earth&zoom=6';
 
+/**
+ * Strip Minecraft chat formatting codes and Towny placeholder tags from API text.
+ * EMC's `formattedName`, `title`, `surname`, and nation/town `board` fields can contain:
+ *   - §x§F§F§D§D§0§0  (hex color, 1.16+ format)
+ *   - §0-9, §a-f, §k-o, §r, §x  (legacy color/formatting codes)
+ *   - &-prefixed equivalents
+ *   - <bold>, </italic>, <color:#abc>  (Towny placeholder tags)
+ * We strip everything since we don't render the colors — the goal is readable plain text.
+ */
+export function stripFormatting(text) {
+  if (text == null) return '';
+  return String(text)
+    .replace(/§x(§[0-9a-fA-F]){6}/g, '')
+    .replace(/§[0-9a-fk-orxA-FK-ORX]/g, '')
+    .replace(/&x(&[0-9a-fA-F]){6}/g, '')
+    .replace(/&[0-9a-fk-orxA-FK-ORX]/g, '')
+    .replace(/<\/?[a-zA-Z][^>]*>/g, '')
+    .trim();
+}
+
+/**
+ * True if we're on a Mac-like OS (Mac, iOS). Used to pick ⌘K vs Ctrl+K display.
+ */
+export function isMacLike() {
+  const plat = navigator.platform || '';
+  const ua = navigator.userAgent || '';
+  return /Mac|iPod|iPhone|iPad/.test(plat) || /Mac OS X/.test(ua);
+}
+
 export function formatGold(value) {
   if (value == null) return '—';
   const rounded = Math.round(value);

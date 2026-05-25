@@ -1,6 +1,6 @@
 import { postPlayers } from './api.js';
 import { cached } from './cache.js';
-import { formatGold, formatDate, formatDateTime, formatRelative, makeEntityLink, makeBadge, loadingEl, errorEl } from './render.js';
+import { formatGold, formatDate, formatDateTime, formatRelative, makeEntityLink, makeBadge, loadingEl, errorEl, stripFormatting } from './render.js';
 import { makeFavoriteStar } from './favorites.js';
 import { makeBreadcrumb } from './breadcrumb.js';
 
@@ -36,7 +36,9 @@ function rowEls(label, valueEl, dim = false) {
 function renderHeader(nameContainer, player) {
   nameContainer.replaceChildren();
   const nameSpan = document.createElement('span');
-  nameSpan.textContent = player.formattedName ?? player.name;
+  // formattedName may carry Towny tags + Minecraft color codes; strip before rendering
+  const displayName = stripFormatting(player.formattedName) || player.name;
+  nameSpan.textContent = displayName;
   nameContainer.appendChild(nameSpan);
 
   const s = player.status ?? {};
@@ -104,10 +106,13 @@ function renderBody(bodyContainer, player) {
   }
 
   if (player.about) {
-    const v = document.createElement('div');
-    v.className = 'value about-cell';
-    v.textContent = player.about;
-    append(...rowEls('About', v));
+    const cleanedAbout = stripFormatting(player.about);
+    if (cleanedAbout) {
+      const v = document.createElement('div');
+      v.className = 'value about-cell';
+      v.textContent = cleanedAbout;
+      append(...rowEls('About', v));
+    }
   }
 }
 
@@ -129,8 +134,8 @@ function renderUnavailable(container, nameOrUuid, err) {
 
   const avatar = document.createElement('img');
   avatar.className = 'player-module-avatar';
-  // crafthead works off Mojang's UUID/name database, independent of EMC's opt-out
-  avatar.src = `https://crafthead.net/avatar/${encodeURIComponent(nameOrUuid)}/64`;
+  // mc-heads works off Mojang's UUID/name database, independent of EMC's opt-out
+  avatar.src = `https://mc-heads.net/avatar/${encodeURIComponent(nameOrUuid)}/64`;
   avatar.alt = '';
   avatar.width = 64;
   avatar.height = 64;
@@ -218,7 +223,7 @@ export async function mountPlayer(container, nameOrUuid) {
 
   const avatar = document.createElement('img');
   avatar.className = 'player-module-avatar';
-  avatar.src = `https://crafthead.net/avatar/${player.uuid}/64`;
+  avatar.src = `https://mc-heads.net/avatar/${player.uuid}/64`;
   avatar.alt = '';
   avatar.width = 64;
   avatar.height = 64;

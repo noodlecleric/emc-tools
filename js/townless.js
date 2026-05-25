@@ -113,7 +113,7 @@ function nomadCard(nomad) {
   card.title = nomad.name;
 
   const img = document.createElement('img');
-  img.src = `https://crafthead.net/avatar/${nomad.uuid}/48`;
+  img.src = `https://mc-heads.net/avatar/${nomad.uuid}/48`;
   img.alt = '';
   img.width = 48;
   img.height = 48;

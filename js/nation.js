@@ -1,6 +1,6 @@
 import { postNations, postTowns, getOnline } from './api.js';
 import { cached, getPref, setPref } from './cache.js';
-import { formatGold, formatDate, makeCoordChip, makeEntityLink, makeLastSeenBadge, loadingEl, errorEl, fetchPlayersBatch } from './render.js';
+import { formatGold, formatDate, makeCoordChip, makeEntityLink, makeLastSeenBadge, loadingEl, errorEl, fetchPlayersBatch, stripFormatting } from './render.js';
 import { makeFavoriteStar } from './favorites.js';
 import { makeBreadcrumb } from './breadcrumb.js';
 
@@ -225,7 +225,7 @@ function onlineResidentCard(resident) {
   card.title = resident.name;
 
   const img = document.createElement('img');
-  img.src = `https://crafthead.net/avatar/${resident.uuid}/48`;
+  img.src = `https://mc-heads.net/avatar/${resident.uuid}/48`;
   img.alt = '';
   img.width = 48;
   img.height = 48;
@@ -315,10 +315,13 @@ export async function mountNation(container, name) {
 
   // Board (skip if default placeholder)
   if (nation.board && nation.board !== DEFAULT_BOARD) {
-    const boardEl = document.createElement('p');
-    boardEl.className = 'nation-board';
-    boardEl.textContent = nation.board;
-    container.appendChild(boardEl);
+    const cleanedBoard = stripFormatting(nation.board);
+    if (cleanedBoard) {
+      const boardEl = document.createElement('p');
+      boardEl.className = 'nation-board';
+      boardEl.textContent = cleanedBoard;
+      container.appendChild(boardEl);
+    }
   }
 
   // Stats grid

@@ -65,7 +65,7 @@ Most pages cost 1-4 API calls on cold load. Cached re-loads cost zero.
 
 - No analytics, no error tracking, no third-party scripts
 - All preferences (default nation, favorites, sort orders, the `hasTown` cache) stored in `localStorage` only
-- The only external image source is `crafthead.net` for player avatars
+- The only external image source is `mc-heads.net` for player avatars
 - No accounts, no auth, no server-side state. Purely static files served from GitHub Pages.
 
 ## Contributing

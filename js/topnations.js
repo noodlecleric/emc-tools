@@ -57,6 +57,7 @@ function buildTable(rows, sort, onSort) {
   const cols = [
     { key: 'name', label: 'Nation', numeric: false },
     { key: 'residents', label: 'Residents', numeric: true },
+    { key: 'towns', label: 'Towns', numeric: true },
     { key: 'online', label: 'Online', numeric: true },
     { key: 'area', label: 'Area', numeric: true },
     { key: 'balance', label: 'Gold', numeric: true },
@@ -93,6 +94,11 @@ function buildTable(rows, sort, onSort) {
     resTd.dataset.label = 'Residents';
     resTd.textContent = r.residents.toLocaleString();
 
+    const townsTd = document.createElement('td');
+    townsTd.className = 'numeric';
+    townsTd.dataset.label = 'Towns';
+    townsTd.textContent = r.towns.toLocaleString();
+
     const onlineTd = document.createElement('td');
     onlineTd.className = 'numeric';
     onlineTd.dataset.label = 'Online';
@@ -109,7 +115,7 @@ function buildTable(rows, sort, onSort) {
     balTd.dataset.label = 'Gold';
     balTd.textContent = `${r.balance.toLocaleString()}g`;
 
-    tr.append(nameTd, resTd, onlineTd, areaTd, balTd);
+    tr.append(nameTd, resTd, townsTd, onlineTd, areaTd, balTd);
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);
@@ -154,13 +160,14 @@ export async function mountTopNations(container) {
   const rows = list.map(({ name }) => {
     const n = enriched.get(name.toLowerCase());
     if (!n) {
-      return { name, residents: 0, online: 0, area: 0, balance: 0 };
+      return { name, residents: 0, towns: 0, online: 0, area: 0, balance: 0 };
     }
     const residents = n.residents ?? [];
     const onlineCount = residents.filter(r => onlineUuids.has(r.uuid)).length;
     return {
       name: n.name,
       residents: n.stats?.numResidents ?? residents.length,
+      towns: n.stats?.numTowns ?? 0,
       online: onlineCount,
       area: n.stats?.numTownBlocks ?? 0,
       balance: Math.round(n.stats?.balance ?? 0),

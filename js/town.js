@@ -44,7 +44,7 @@ function residentCard(resident, lastSeen) {
   card.title = resident.name;
 
   const img = document.createElement('img');
-  img.src = `https://crafthead.net/avatar/${resident.uuid}/48`;
+  img.src = `https://mc-heads.net/avatar/${resident.uuid}/48`;
   img.alt = '';
   img.width = 48;
   img.height = 48;

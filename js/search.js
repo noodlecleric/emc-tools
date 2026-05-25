@@ -1,4 +1,5 @@
 import { getCachedNations } from './cache.js';
+import { isMacLike } from './render.js';
 
 const TYPES = ['nation', 'town', 'player'];
 
@@ -218,6 +219,14 @@ function bindGlobalShortcuts() {
 
   const trigger = document.getElementById('search-trigger');
   if (trigger) trigger.addEventListener('click', openSearch);
+
+  // Per-OS keyboard hint: ⌘K on Mac, Ctrl+K everywhere else (Windows, Linux, etc.)
+  const kbd = document.querySelector('.search-trigger-kbd');
+  if (kbd) kbd.textContent = isMacLike() ? '⌘K' : 'Ctrl+K';
+
+  // Same for the overlay's footer help text
+  const helpEl = document.querySelector('.search-overlay-help');
+  // help text is generic ('Enter to search · Esc to close') so leave it alone
 }
 
 let savedScrollY = 0;
