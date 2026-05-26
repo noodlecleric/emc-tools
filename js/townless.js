@@ -3,6 +3,8 @@ import { cached, getPref, setPref, invalidate } from './cache.js';
 import { loadingEl, errorEl, fetchPlayersBatch, makeRegisteredBadge } from './render.js';
 
 const TTL_ONLINE = 15_000;
+// Only trusted for `hasTown: true` — settled players stay settled.
+// `hasTown: false` is never trusted from cache; nomads churn (joining a town is the expected transition).
 const HAS_TOWN_TTL = 24 * 60 * 60 * 1000;
 const HAS_TOWN_KEY = 'hasTownMap';
 
@@ -29,8 +31,8 @@ function isEntryFresh(entry) {
  * Streams nomads via callbacks:
  *  - onNomad(nomad): one nomad ready to render
  *  - onProgress({ completed, total, nomadsFound, failed }): batch progress
- * Cached nomads emit synchronously after /online resolves;
- * unknown UUIDs are checked in parallel and stream as each chunk finishes.
+ * Settled players (cached `hasTown: true`) are skipped. Everyone else is rechecked,
+ * so nomad candidates always reflect the current API state — no stale ex-nomads.
  */
 async function fetchTownlessOnline({ onProgress, onNomad } = {}) {
   let online;
@@ -54,14 +56,10 @@ async function fetchTownlessOnline({ onProgress, onNomad } = {}) {
   const unknownUuids = [];
   for (const p of players) {
     const entry = map.get(p.uuid);
-    if (isEntryFresh(entry)) {
-      if (entry.hasTown === false) {
-        if (onNomad) onNomad({ name: p.name, uuid: p.uuid, registered: entry.registered });
-        nomadsFound++;
-      }
-    } else {
-      unknownUuids.push(p.uuid);
-    }
+    // Only skip players we know are settled. Cached `hasTown: false` is treated as stale —
+    // those players go back into the batch so we don't surface ex-nomads who've since joined a town.
+    if (isEntryFresh(entry) && entry.hasTown === true) continue;
+    unknownUuids.push(p.uuid);
   }
 
   if (onProgress) onProgress({ completed: 0, total: 0, nomadsFound, failed: 0 });
@@ -203,9 +201,7 @@ export async function mountTownless(container) {
       const result = await fetchTownlessOnline({
         onProgress: ({ completed, total, nomadsFound, failed }) => {
           if (total === 0) {
-            status.textContent = nomadsFound > 0
-              ? `${nomadsFound} from cache · checking new players…`
-              : 'Checking online players…';
+            status.textContent = 'Checking online players…';
           } else {
             const failedSuffix = failed > 0 ? ` · ${failed} failed` : '';
             status.textContent = `Checking ${completed}/${total} batches · ${nomadsFound} nomads so far${failedSuffix}`;
