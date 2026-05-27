@@ -984,6 +984,38 @@ main {
 .registered-badge.tier-old { background: #000; color: #888; border: 1px solid var(--border); }
 .registered-badge.tier-never { background: rgba(113, 113, 122, 0.25); color: var(--dim); }
 
+/* ===== Staff view ===== */
+
+.staff-role-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-family: var(--mono);
+  padding: 1px 6px;
+  border-radius: 2px;
+  white-space: nowrap;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+.staff-role-badge.role-owner     { background: rgba(239, 68, 68, 0.22); color: #fca5a5; }
+.staff-role-badge.role-admin     { background: rgba(245, 158, 11, 0.22); color: #fbbf24; }
+.staff-role-badge.role-developer { background: rgba(168, 85, 247, 0.22); color: #c4b5fd; }
+.staff-role-badge.role-moderator { background: rgba(59, 130, 246, 0.22); color: #93c5fd; }
+.staff-role-badge.role-helper    { background: rgba(34, 197, 94, 0.18); color: var(--accent); }
+
+.player-card.offline {
+  opacity: 0.55;
+}
+.player-card.offline:hover {
+  opacity: 1;
+}
+
+.staff-source {
+  margin-top: 1.25rem;
+  font-size: 11px;
+}
+.staff-source a { color: var(--muted); }
+.staff-source a:hover { color: var(--text); }
+
 /* ===== Favorites ===== */
 
 .fav-list {

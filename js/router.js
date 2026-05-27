@@ -5,6 +5,7 @@ import { mountPlayer } from './player.js';
 import { mountTownless } from './townless.js';
 import { mountTopNations } from './topnations.js';
 import { mountFavorites } from './favoritesview.js';
+import { mountStaff } from './staff.js';
 
 let mainView = null;
 
@@ -48,6 +49,10 @@ export function route() {
     highlightNav('favorites');
     updateTitle('Favorites');
     mountFavorites(mainView);
+  } else if (params.get('view') === 'staff') {
+    highlightNav('staff');
+    updateTitle('Staff');
+    mountStaff(mainView);
   } else {
     highlightNav('home');
     updateTitle('');
