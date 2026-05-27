@@ -64,8 +64,8 @@ Most pages cost 1-4 API calls on cold load. Cached re-loads cost zero.
 ## Privacy
 
 - No analytics, no error tracking, no third-party scripts
-- All preferences (default nation, favorites, sort orders, the `hasTown` cache) stored in `localStorage` only
-- The only external image source is `mc-heads.net` for player avatars
+- All preferences (default nation, favorites, sort orders, the `hasTown` cache, staff list) stored in `localStorage` only
+- External services used: `mc-heads.net` for player avatars, `playerdb.co` for Mojang name lookups on the Staff view (called only for staff UUIDs that EMC's API can't resolve — typically once per 24h)
 - No accounts, no auth, no server-side state. Purely static files served from GitHub Pages.
 
 ## Contributing

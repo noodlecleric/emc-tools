@@ -6,6 +6,8 @@ const TTL_ONLINE = 15_000;
 const STAFF_LIST_KEY = 'staffList';
 const STAFF_LIST_TTL = 24 * 60 * 60 * 1000;
 const STAFF_LIST_URL = 'https://raw.githubusercontent.com/Veyronity/staff/master/staff.json';
+const PLAYERDB_URL = 'https://playerdb.co/api/player/minecraft/';
+const PLAYERDB_TIMEOUT = 8_000;
 
 // Role hierarchy, top to bottom. Drives section ordering and badge color.
 const ROLE_ORDER = ['owner', 'admin', 'developer', 'moderator', 'helper'];
@@ -18,8 +20,33 @@ const ROLE_LABELS = {
 };
 
 /**
- * Fetch + cache the staff roster. Resolves UUIDs to current Mojang names via
- * one batched /players call so offline staff still render with a name.
+ * Resolve UUIDs to current Mojang names via playerdb.co (CORS-enabled Mojang proxy).
+ * Used as fallback for staff who've opted out of EMC's public API — EMC returns []
+ * for opted-out players, so /players can't tell us their names. Mojang's session
+ * server has no CORS, so we use playerdb as a browser-friendly bridge.
+ * Returns Map<uuid, username>. Silent on individual failures.
+ */
+async function resolveNamesFromPlayerDB(uuids) {
+  const results = new Map();
+  await Promise.all(uuids.map(async (uuid) => {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), PLAYERDB_TIMEOUT);
+    try {
+      const res = await fetch(PLAYERDB_URL + uuid, { signal: ctrl.signal });
+      if (!res.ok) return;
+      const json = await res.json();
+      const username = json?.data?.player?.username;
+      if (username) results.set(uuid, username);
+    } catch { /* fall through to UUID-prefix display */ }
+    finally { clearTimeout(t); }
+  }));
+  return results;
+}
+
+/**
+ * Fetch + cache the staff roster. Resolves UUIDs to current Mojang names:
+ *  1. Batched POST /players (EMC) — fastest, but returns [] for opted-out staff.
+ *  2. playerdb.co fallback for any UUIDs EMC couldn't resolve.
  * Cached blob shape: { fetchedAt, members: [{ uuid, role, name }] }
  */
 async function fetchStaffRoster({ force = false } = {}) {
@@ -46,11 +73,21 @@ async function fetchStaffRoster({ force = false } = {}) {
     for (const uuid of ids) members.push({ uuid, role });
   }
 
-  // Resolve names. One batch chunk for ~35 UUIDs.
+  // Resolve names. EMC first (one batch chunk for ~35 UUIDs).
   const playerMap = await fetchPlayersBatch(members.map(m => m.uuid));
+  const unresolved = [];
   for (const m of members) {
     const p = playerMap.get(m.uuid);
     m.name = p?.name ?? null;
+    if (!m.name) unresolved.push(m.uuid);
+  }
+
+  // Fallback: playerdb.co for opted-out staff (EMC returns [] for those).
+  if (unresolved.length > 0) {
+    const fallbackNames = await resolveNamesFromPlayerDB(unresolved);
+    for (const m of members) {
+      if (!m.name && fallbackNames.has(m.uuid)) m.name = fallbackNames.get(m.uuid);
+    }
   }
 
   const blob = { fetchedAt: Date.now(), members };
