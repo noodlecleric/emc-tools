@@ -65,7 +65,10 @@ Most pages cost 1-4 API calls on cold load. Cached re-loads cost zero.
 
 - No analytics, no error tracking, no third-party scripts
 - All preferences (default nation, favorites, sort orders, the `hasTown` cache, staff list) stored in `localStorage` only
-- External services used: `mc-heads.net` for player avatars, `playerdb.co` for Mojang name lookups on the Staff view (called only for staff UUIDs that EMC's API can't resolve — typically once per 24h)
+- External services your browser calls:
+  - `api.earthmc.net` — the game's own API; the whole tool runs on it
+  - `mc-heads.net` — player avatars
+  - `playerdb.co` (operated by Nodecraft) — fallback for Minecraft name lookups when an EarthMC player has opted out of EMC's public API. Only public UUIDs are sent, results are cached in your browser for 24 hours, and the app never calls Microsoft/Mojang services directly
 - No accounts, no auth, no server-side state. Purely static files served from GitHub Pages.
 
 ## Contributing
