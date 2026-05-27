@@ -4,12 +4,13 @@ import { cached } from './cache.js';
 const DYNMAP_BASE = 'https://map.earthmc.net/?worldname=earth&zoom=6';
 
 /**
- * Strip Minecraft chat formatting codes and Towny placeholder tags from API text.
+ * Strip Minecraft chat formatting codes and Towny/MiniMessage placeholder tags from API text.
  * EMC's `formattedName`, `title`, `surname`, and nation/town `board` fields can contain:
  *   - §x§F§F§D§D§0§0  (hex color, 1.16+ format)
  *   - §0-9, §a-f, §k-o, §r, §x  (legacy color/formatting codes)
  *   - &-prefixed equivalents
- *   - <bold>, </italic>, <color:#abc>  (Towny placeholder tags)
+ *   - <bold>, </italic>, <color:#abc>  (Towny / MiniMessage named tags)
+ *   - <#FFD700>, </#FFD700>  (MiniMessage hex shortcut tags)
  * We strip everything since we don't render the colors — the goal is readable plain text.
  */
 export function stripFormatting(text) {
@@ -19,7 +20,7 @@ export function stripFormatting(text) {
     .replace(/§[0-9a-fk-orxA-FK-ORX]/g, '')
     .replace(/&x(&[0-9a-fA-F]){6}/g, '')
     .replace(/&[0-9a-fk-orxA-FK-ORX]/g, '')
-    .replace(/<\/?[a-zA-Z][^>]*>/g, '')
+    .replace(/<\/?[a-zA-Z#][^>]*>/g, '')
     .trim();
 }
 
