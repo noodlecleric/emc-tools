@@ -17,7 +17,7 @@ async function fetchAllNations() {
 }
 
 async function fetchEnrichedNations(names) {
-  // POST /nations capped at 100 per batch; 131 nations → 2 batches
+  // POST /nations capped at 100 per batch; large servers may need 2+ batches
   const map = new Map();
   for (let i = 0; i < names.length; i += 100) {
     const chunk = names.slice(i, i + 100);
@@ -133,18 +133,19 @@ export async function mountTopNations(container) {
   header.appendChild(h2);
   const subhead = document.createElement('span');
   subhead.className = 'muted';
-  subhead.textContent = 'all 131 nations · sortable · live online counts';
+  subhead.textContent = 'all nations · sortable · live online counts';
   header.appendChild(subhead);
   container.appendChild(header);
 
   const wrap = document.createElement('div');
   wrap.className = 'table-wrap';
-  wrap.appendChild(loadingEl('Loading nation data (4 API calls)…'));
+  wrap.appendChild(loadingEl('Loading nation data…'));
   container.appendChild(wrap);
 
   let list, enriched, online;
   try {
     list = await fetchAllNations();
+    subhead.textContent = `all ${list.length} nations · sortable · live online counts`;
     const names = list.map(n => n.name);
     [enriched, online] = await Promise.all([
       fetchEnrichedNations(names),

@@ -8,7 +8,7 @@ Quick-glance EarthMC stats and lookups in a browser tab. Pin it, leave it open, 
 
 - **Top bar** auto-refreshes every 30s with your default nation's online roster, vote party progress, and total server players
 - **Nation / Town / Player** lookup modules with cross-linking (click any name to jump to that entity)
-- **Top Nations** sortable table for all 131 EMC nations (Residents / Online / Area / Gold)
+- **Top Nations** sortable table for all EMC nations (Residents / Online / Area / Gold)
 - **Online Nomads** view: townless players currently on the server, color-coded by how recently they registered
 - **Favorites** for nations, towns, and players with drag-and-drop reorder. Each favorite row shows a live stat (online count for nations, overclaim flag for towns, online dot for players)
 - **Vulnerability scan** on nation pages: surfaces overclaimed member towns and mayors approaching the 42-day deletion threshold
@@ -56,7 +56,7 @@ Designed to stay well under EarthMC's ~180 req/min rate limit.
 - POST endpoints use `Content-Type: text/plain` to skip the OPTIONS preflight (the API returns 404 on OPTIONS, which breaks browser POSTs with `application/json`)
 - In-memory TTL cache per URL: 15s for `/online`, 30s for `/`, 60s for nation/town POSTs, 5min for the top-nations enrichment
 - `hasTown` lookups for the Nomads view persist in `localStorage` for 24h so subsequent sessions only check players we haven't seen
-- The full nations list (~8KB, 131 entries) is cached in `localStorage` for 24h to power autocomplete in the search bar
+- The full nations list is cached in `localStorage` for 24h to power autocomplete in the search bar
 - Live API request counter is visible in the top bar (`API: 6/min · 11 total · cache 84%`) for self-policing. Goes yellow above 90/min, red above 150/min.
 
 Most pages cost 1-4 API calls on cold load. Cached re-loads cost zero.
